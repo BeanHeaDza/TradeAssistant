@@ -165,10 +165,10 @@ namespace TradeAssistant
                     output.AppendLineLoc($"Failed to get the cost price of {item.UILink()} ({TextLoc.FoldoutLoc($"Why?", $"Why {item.UILink()}", reason.ToStringLoc())}).");
             }
 
-            if (warnings.Any())
-            {
-                output.AppendLine(warnings.Select(w => "- " + w).Distinct().FoldoutListLoc("warning", Eco.Shared.Items.TooltipOrigin.None));
-            }
+            // TODO: I'm not happy with how warnings are working at the moment. Removing them for now.
+            //if (warnings.Any())
+            //    output.AppendLine(warnings.Select(w => "- " + w).Distinct().FoldoutListLoc("warning", Eco.Shared.Items.TooltipOrigin.None));
+            
             if (updates.Count == 0 && output.Length == 0)
                 user.TempServerMessage(Localizer.Do($"All prices are up to date!"));
             else
