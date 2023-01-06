@@ -187,6 +187,7 @@ namespace TradeAssistant
             if (calc == null) return;
 
             var item = CommandsUtil.ClosestMatchingEntity(user, itemName, Item.AllItems, x => x.GetType().Name, x => x.DisplayName);
+            if (item == null) return;
             if (calc.TryGetCostPrice(item, out var price, out var reason, out var _))
             {
                 var msg = new StringBuilder();
