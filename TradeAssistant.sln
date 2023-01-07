@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.2.32602.215
+VisualStudioVersion = 17.4.33122.133
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TradeAssistant", "TradeAssistant.csproj", "{416140C0-E3B8-45AD-AA2E-7166CCC8D7F5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradeAssistant", "TradeAssistant.csproj", "{F0A2B1CC-0200-41EB-BB8E-128D819CE8C7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,15 +11,15 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{416140C0-E3B8-45AD-AA2E-7166CCC8D7F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{416140C0-E3B8-45AD-AA2E-7166CCC8D7F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{416140C0-E3B8-45AD-AA2E-7166CCC8D7F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{416140C0-E3B8-45AD-AA2E-7166CCC8D7F5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F0A2B1CC-0200-41EB-BB8E-128D819CE8C7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F0A2B1CC-0200-41EB-BB8E-128D819CE8C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F0A2B1CC-0200-41EB-BB8E-128D819CE8C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F0A2B1CC-0200-41EB-BB8E-128D819CE8C7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {ECE15FFF-2138-4577-A9E5-348CDE572404}
+		SolutionGuid = {B7588114-E254-4318-A792-E3B2DBACAC70}
 	EndGlobalSection
 EndGlobal
