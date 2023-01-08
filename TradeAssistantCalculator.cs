@@ -110,6 +110,7 @@ namespace TradeAssistant
                 warnings = cachedPrice.Warnings;
                 return !float.IsPositiveInfinity(cachedPrice.Price);
             }
+            CachedPrices.Add(item.TypeID, new CachedPrice(float.PositiveInfinity, new StringBuilder(Localizer.Do($"Recursive recipe!"))));
 
 
             var recipes = CraftingTables.SelectMany(ct => ct.Recipes
@@ -121,7 +122,7 @@ namespace TradeAssistant
             {
                 outPrice = float.PositiveInfinity;
                 reason = new StringBuilder(Localizer.DoStr($"There is no recipe on any of the crafting tables that can craft {item.UILink()}"));
-                CachedPrices.Add(item.TypeID, new CachedPrice(outPrice, reason));
+                CachedPrices[item.TypeID] = new CachedPrice(outPrice, reason);
                 return false;
             }
 
@@ -232,7 +233,7 @@ namespace TradeAssistant
             {
                 failedRecipes.Insert(0, Localizer.Do($"Could not calculate the item cost from any of the provided recipes:\n"));
                 bestPrice = new CachedPrice(float.PositiveInfinity, new StringBuilder(string.Join("\n", failedRecipes.Select(m => $"- {m}"))));
-                CachedPrices.Add(item.TypeID, bestPrice);
+                CachedPrices[item.TypeID] = bestPrice;
                 outPrice = bestPrice.Price;
                 reason = bestPrice.Reason;
                 return false;
@@ -272,7 +273,7 @@ namespace TradeAssistant
                 }
                 if (warnings != null)
                     bestPrice = new CachedPrice(bestPrice.Price, bestPrice.Reason, bestPrice.Recipe, new List<LocString>(warnings));
-                CachedPrices.Add(item.TypeID, bestPrice);
+                CachedPrices[item.TypeID] = bestPrice;
                 outPrice = bestPrice.Price;
                 reason = bestPrice.Reason;
                 return true;

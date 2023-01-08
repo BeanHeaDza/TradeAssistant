@@ -96,8 +96,10 @@ namespace TradeAssistant
 
             // Work through the list of craftable items and find the product we need to make them
             var todo = new Queue<int>(calc.CraftableItems.Select(p => p.TypeID).Where(sellOfferTypeIds.Contains));
+            var done = new HashSet<int>();
             while (todo.TryDequeue(out var productId))
             {
+                if (!done.Add(productId)) continue;
                 var itemsToQueue = allRecipes[productId].Where(allRecipes.ContainsKey).ToList();
                 var itemsToBuy = allRecipes[productId].Where(i => !itemsToQueue.Contains(i));
                 items.AddRange(itemsToBuy);
@@ -168,7 +170,7 @@ namespace TradeAssistant
             // TODO: I'm not happy with how warnings are working at the moment. Removing them for now.
             //if (warnings.Any())
             //    output.AppendLine(warnings.Select(w => "- " + w).Distinct().FoldoutListLoc("warning", Eco.Shared.Items.TooltipOrigin.None));
-            
+
             if (updates.Count == 0 && output.Length == 0)
                 user.TempServerMessage(Localizer.Do($"All prices are up to date!"));
             else
