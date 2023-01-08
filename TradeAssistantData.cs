@@ -25,7 +25,7 @@ namespace TradeAssistant
     public class UserConfig
     {
         [Serialized] public float Profit { get; set; } = 20;
-        [Serialized] public float CostPerCalory { get; set; } = 0.01f;
+        [Serialized] public float CostPer1000Calories { get; set; } = 1f;
         [Serialized] public ThreadSafeList<int> ByProducts { get; set; } = new();
 
         public UserConfigUI ToUI()
@@ -33,7 +33,7 @@ namespace TradeAssistant
             UserConfigUI ui = new UserConfigUI
             {
                 Profit = Profit,
-                CostPerCalory = CostPerCalory
+                CostPerThousandCalories = CostPer1000Calories
             };
             ByProducts.Select(id => Item.Get(id)).Where(p => p != null).ForEach(p => ui.ByProducts.Add(p));
             return ui;
@@ -42,7 +42,7 @@ namespace TradeAssistant
         public void UpdateFromUI(UserConfigUI config)
         {
             Profit = config.Profit <= -100 ? -99f : config.Profit;
-            CostPerCalory = config.CostPerCalory;
+            CostPer1000Calories = config.CostPerThousandCalories;
             ByProducts.Clear();
             ByProducts.AddRange(config.ByProducts.Select(p => p.TypeID));
         }
@@ -51,7 +51,7 @@ namespace TradeAssistant
     public class UserConfigUI : IController, INotifyPropertyChanged, Eco.Core.PropertyHandling.INotifyPropertyChangedInvoker, IHasClientControlledContainers
     {
         [Eco] public float Profit { get; set; } = 20;
-        [Eco] public float CostPerCalory { get; set; } = 0.01f;
+        [Eco] public float CostPerThousandCalories { get; set; } = 1f;
         [Eco, AllowEmpty] public ControllerList<Item> ByProducts { get; set; }
 
         public UserConfigUI()

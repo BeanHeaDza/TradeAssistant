@@ -169,8 +169,8 @@ namespace TradeAssistant
                 }
 
                 // Labour cost
-                var labourCost = recipe.Family.LaborInCalories.GetCurrentValue(User) * Config.CostPerCalory;
-                explanation.AppendLineLoc($"Labour: UserModifiedCalories ({Text.StyledNum(recipe.Family.LaborInCalories.GetCurrentValue(User))}) * CostPerCalory ({Text.StyledNum(Config.CostPerCalory)}) = {Text.StyledNum(labourCost)}");
+                var labourCost = recipe.Family.LaborInCalories.GetCurrentValue(User) * Config.CostPer1000Calories / 1000f;
+                explanation.AppendLineLoc($"Labour: UserModifiedCalories ({Text.StyledNum(recipe.Family.LaborInCalories.GetCurrentValue(User))}) * CostPer1000Calories ({Text.StyledNum(Config.CostPer1000Calories)}) / 1000 = {Text.StyledNum(labourCost)}");
 
                 // Ingredients cost
                 var getIngredientPrice = (Item ingredient, IngredientElement element) =>
