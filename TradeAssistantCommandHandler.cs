@@ -1,4 +1,5 @@
-﻿using Eco.Gameplay.Components;
+﻿using Eco.Core.Plugins;
+using Eco.Gameplay.Components;
 using Eco.Gameplay.DynamicValues;
 using Eco.Gameplay.Economy;
 using Eco.Gameplay.Items;
@@ -224,7 +225,7 @@ namespace TradeAssistant
             {
                 if (entry is UserConfigUI uiConfig)
                     config.UpdateFromUI(uiConfig);
-
+                StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
             }
         }
     }

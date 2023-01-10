@@ -2,12 +2,7 @@
 using Eco.Core.Plugins.Interfaces;
 using Eco.Shared.Localization;
 using Eco.Shared.Utils;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace TradeAssistant
 {
@@ -16,7 +11,14 @@ namespace TradeAssistant
         [NotNull] private readonly TradeAssistantData data;
         public TradeAssistantPlugin()
         {
-            data = StorageManager.LoadOrCreate<TradeAssistantData>("TradeAssistant");
+            try { data = StorageManager.LoadOrCreate<TradeAssistantData>("TradeAssistant"); }
+            catch
+            {
+                foreach (var fileName in StorageManager.GetFiles("TradeAssistant"))
+                    StorageManager.Delete(fileName);
+
+                data = StorageManager.LoadOrCreate<TradeAssistantData>("TradeAsisstant");
+            }
         }
         public string GetCategory() => Localizer.DoStr("Mods");
         public string GetStatus() => string.Empty;
