@@ -31,12 +31,12 @@ namespace TradeAssistant
 
         public UserConfig Config { get; }
         public StoreComponent Store { get; }
-        public List<Item> CraftableItems { get; }
+        public Dictionary<LocString, List<Item>> CraftableItems { get; }
 
         public const int WORLD_OBJECT_CAP_NUMBER = 1;
         public const int TOOL_CAP_NUMBER = 5;
 
-        private TradeAssistantCalculator(StoreComponent store, List<CraftingComponent> craftingTables, List<Item> craftableItems, User user, UserConfig config)
+        private TradeAssistantCalculator(StoreComponent store, List<CraftingComponent> craftingTables, Dictionary<LocString, List<Item>> craftableItems, User user, UserConfig config)
         {
             Store = store;
             CraftingTables = craftingTables;
@@ -300,9 +300,9 @@ namespace TradeAssistant
             var costLink = TextLoc.Foldout(Localizer.Do($"CostPrice ({Text.StyledNum(costPrice)})"), Localizer.Do($"By-Product {product.Item.UILink()} cost price"), costReasonContent.ToLocString());
 
             var reason = Localizer.Do($"{Text.StyledNum(quantity)} {product.Item.UILink()} * {costLink} = {Text.StyledNum(totalCostPrice)}");
-            return new ProductPrice(product, costPrice, reason);
+            return new ProductPrice(product, totalCostPrice, reason);
         }
-        private static bool TryGetStoreAndCraftingTables(StringBuilder sb, User user, out StoreComponent? store, out List<CraftingComponent>? craftingTables, out List<Item>? craftableItems)
+        private static bool TryGetStoreAndCraftingTables(StringBuilder sb, User user, out StoreComponent? store, out List<CraftingComponent>? craftingTables, out Dictionary<LocString, List<Item>>? craftableItems)
         {
             store = null;
             craftingTables = null;
@@ -335,7 +335,10 @@ namespace TradeAssistant
             store = stores.First();
 
             // Get all the crafting tables in the deed
-            craftingTables = WorldObjectUtil.AllObjsWithComponent<CraftingComponent>().Where(workbench => workbench.IsAuthorized(user, Eco.Shared.Items.AccessType.OwnerAccess) && deedStandingIn.Plots.Any(p => p.PlotPos == workbench.Parent.PlotPos())).ToList();
+            craftingTables = WorldObjectUtil.AllObjsWithComponent<CraftingComponent>()
+                .Where(workbench => workbench.IsAuthorized(user, Eco.Shared.Items.AccessType.OwnerAccess) && deedStandingIn.Plots.Any(p => p.PlotPos == workbench.Parent.PlotPos()))
+                .DistinctBy(craftingTable => $"{craftingTable.Parent.Name}:{(craftingTable.ResourceEfficiencyModule == null ? "null" : craftingTable.ResourceEfficiencyModule.Name)}")
+                .ToList();
             if (!craftingTables.Any())
             {
                 sb.AppendLine(Localizer.Do($"Could not find any crafting tables in {deedStandingIn.UILink()}"));
@@ -344,13 +347,15 @@ namespace TradeAssistant
 
             // Check that the user can at least craft one recipe from the crafting tables
             craftableItems = craftingTables
-                .SelectMany(w => w.Recipes
+                .SelectMany(ct => ct.Recipes
                     .Where(recipe => recipe.RequiredSkills.All(s => s.IsMet(user)))
                     .SelectMany(rf => rf.CraftableDefault ? rf.Recipes : rf.Recipes.Skip(1))
                     .SelectMany(r => r.Items)
-                    .Select(p => p.Item)
-                    .DistinctBy(p => p.TypeID)
-                ).ToList();
+                    .Select(p => new { CraftingTable = ct.Parent.DisplayName, p.Item })
+                )
+                .DistinctBy(x => $"{x.CraftingTable}:{x.Item.Name}")
+                .GroupBy(x => x.CraftingTable)
+                .ToDictionary(x => x.Key, x => x.Select(x => x.Item).ToList());
             if (!craftableItems.Any())
             {
                 sb.AppendLine(Localizer.Do($"You don't have the required skills/levels to craft any of the recipes in these crafting tables: {string.Join(", ", craftingTables.Select(w => w.Parent.UILink()))}"));

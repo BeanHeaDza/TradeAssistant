@@ -58,7 +58,7 @@ namespace TradeAssistant
 
             var sb = new StringBuilder();
 
-            var items = calc.CraftableItems.Select(p => p.TypeID).ToHashSet();
+            var items = calc.CraftableItems.SelectMany(x => x.Value).Select(p => p.TypeID).ToHashSet();
             var soldItems = calc.Store.StoreData.SellOffers.Select(o => o.Stack.Item.TypeID).ToHashSet();
             var itemsToAdd = items.Where(i => !soldItems.Contains(i)).ToList();
 
@@ -69,8 +69,15 @@ namespace TradeAssistant
                 return;
             }
 
+            foreach (var (table, tableItems) in calc.CraftableItems)
+            {
+                var addedForThisTable = tableItems.Select(i => i.TypeID).Where(itemsToAdd.Contains);
+                if (!addedForThisTable.Any()) { continue; }
 
-            calc.Store.CreateCategoryWithOffers(itemsToAdd.ToList(), false);
+                calc.Store.CreateCategoryWithOffers(addedForThisTable.ToList(), false);
+                var category = calc.Store.StoreData.SellCategories.Last();
+                category.Name = table;
+            }
             foreach (var offer in calc.Store.StoreData.SellOffers.Where(o => itemsToAdd.Contains(o.Stack.Item.TypeID)))
                 offer.Price = 999999;
 
@@ -96,7 +103,7 @@ namespace TradeAssistant
             var sellOfferTypeIds = calc.Store.StoreData.SellOffers.Select(o => o.Stack.Item.TypeID).ToList();
 
             // Work through the list of craftable items and find the product we need to make them
-            var todo = new Queue<int>(calc.CraftableItems.Select(p => p.TypeID).Where(sellOfferTypeIds.Contains));
+            var todo = new Queue<int>(calc.CraftableItems.SelectMany(x => x.Value).Select(p => p.TypeID).Distinct().Where(sellOfferTypeIds.Contains));
             var done = new HashSet<int>();
             while (todo.TryDequeue(out var productId))
             {
@@ -138,7 +145,7 @@ namespace TradeAssistant
                 return;
             }
 
-            var productsToUpdate = calc.CraftableItems.Where(p => storeSellItemIds.Contains(p.TypeID)).ToList();
+            var productsToUpdate = calc.CraftableItems.SelectMany(x => x.Value).Where(p => storeSellItemIds.Contains(p.TypeID)).ToList();
             if (productsToUpdate.Count == 0)
             {
                 user.TempServerMessage(Localizer.Do($"None of the items sold by {calc.Store.Parent.UILink()} have recipes on the local crafting tables."));
