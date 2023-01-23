@@ -7,6 +7,7 @@ using Eco.Gameplay.Players;
 using Eco.Gameplay.Property;
 using Eco.Gameplay.Systems.TextLinks;
 using Eco.Gameplay.Systems.Tooltip;
+using Eco.Shared;
 using Eco.Shared.Localization;
 using Eco.Shared.Math;
 using Eco.Shared.Utils;
@@ -96,7 +97,7 @@ namespace TradeAssistant
             warnings = null;
 
             // Check if the user is buying the item already in the store
-            if (StoreBuyPrices.TryGetValue(item.TypeID, out outPrice))
+            if (StoreBuyPrices.TryGetValue(item.TypeID, out outPrice) && !StoreSellPrices.ContainsKey(item.TypeID))
             {
                 reason = new StringBuilder(Localizer.DoStr($"{Store.Parent.UILink()} has a buy order for {item.UILink()} at a price of {Text.StyledNum(outPrice)}"));
                 return true;
@@ -365,14 +366,28 @@ namespace TradeAssistant
             return true;
         }
 
-        public List<LocString> SetPrice(Item item, float newPrice)
+        public List<LocString> SetSellPrice(Item item, float newPrice)
         {
+            newPrice = Mathf.RoundToAcceptedDigits(newPrice);
             StoreSellPrices[item.TypeID] = newPrice;
 
             var msgs = new List<LocString>();
             Store.StoreData.SellOffers.Where(o => o.Stack.Item.SameType(item) && o.Price != newPrice).ForEach(o =>
             {
-                msgs.AddLoc($"Updating price of {item.UILink()} from {Text.StyledNum(o.Price)} to {Text.StyledNum(newPrice)}");
+                msgs.AddLoc($"Updating sell price of {item.UILink()} from {Text.StyledNum(o.Price)} to {Text.StyledNum(newPrice)}");
+                o.Price = newPrice;
+            });
+            return msgs;
+        }
+        public List<LocString> SetBuyPrice(Item item, float newPrice)
+        {
+            newPrice = Mathf.RoundToAcceptedDigits(newPrice);
+            StoreBuyPrices[item.TypeID] = newPrice;
+
+            var msgs = new List<LocString>();
+            Store.StoreData.BuyOffers.Where(o => o.Stack.Item.SameType(item) && o.Price != newPrice).ForEach(o =>
+            {
+                msgs.AddLoc($"Updating buy price of {item.UILink()} from {Text.StyledNum(o.Price)} to {Text.StyledNum(newPrice)}");
                 o.Price = newPrice;
             });
             return msgs;
