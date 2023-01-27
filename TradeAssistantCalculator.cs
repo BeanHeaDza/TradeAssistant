@@ -87,6 +87,7 @@ namespace TradeAssistant
                 .SelectMany(r => r.Items.Select(i => new { product = i.Item, r.Ingredients }))
                 .SelectMany(x => x.Ingredients.Select(i => new { x.product, ingredient = i }))
                 .SelectMany(x => x.ingredient.IsSpecificItem ? new[] { new { x.product, item = x.ingredient.Item } } : x.ingredient.Tag.TaggedItems().Select(t => new { x.product, item = t }))
+                .Where(x => !x.item.Hidden)
                 .DistinctBy(x => $"{x.product.TypeID}:{x.item.TypeID}")
                 .GroupBy(x => x.product.TypeID)
                 .ToDictionary(x => x.Key, x => x.Select(y => y.item.TypeID).ToList());
