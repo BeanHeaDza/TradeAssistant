@@ -93,14 +93,19 @@ namespace TradeAssistant
                 .ToDictionary(x => x.Key, x => x.Select(y => y.item.TypeID).ToList());
         }
 
+        public bool TryGetCostPrice(int item, out float outPrice, out StringBuilder reason, out List<LocString>? warnings) => TryGetCostPrice(Item.Get(item), out outPrice, out reason, out warnings);
         public bool TryGetCostPrice(Item item, out float outPrice, out StringBuilder reason, out List<LocString>? warnings)
         {
             warnings = null;
 
             // Check if the user is buying the item already in the store
-            if (StoreBuyPrices.TryGetValue(item.TypeID, out outPrice) && !StoreSellPrices.ContainsKey(item.TypeID))
+            var hasBuyOrder = StoreBuyPrices.TryGetValue(item.TypeID, out var buyPrice);
+            var buyReason = Localizer.DoStr($"{Store.Parent.UILink()} has a buy order for {item.UILink()} at a price of {Text.StyledNum(buyPrice)}");
+
+            if (hasBuyOrder && !StoreSellPrices.ContainsKey(item.TypeID))
             {
-                reason = new StringBuilder(Localizer.DoStr($"{Store.Parent.UILink()} has a buy order for {item.UILink()} at a price of {Text.StyledNum(outPrice)}"));
+                reason = new StringBuilder(buyReason);
+                outPrice = buyPrice;
                 return true;
             }
 
@@ -122,10 +127,11 @@ namespace TradeAssistant
 
             if (!recipes.Any())
             {
-                outPrice = float.PositiveInfinity;
+                outPrice = hasBuyOrder ? buyPrice : float.PositiveInfinity;
                 reason = new StringBuilder(Localizer.DoStr($"There is no recipe on any of the crafting tables that can craft {item.UILink()}"));
+                if (hasBuyOrder) reason.Append("\n\n").AppendLine(buyReason);
                 CachedPrices[item.TypeID] = new CachedPrice(outPrice, reason);
-                return false;
+                return hasBuyOrder;
             }
 
             CachedPrice? bestPrice = null;
@@ -233,12 +239,15 @@ namespace TradeAssistant
 
             if (bestPrice == null)
             {
-                failedRecipes.Insert(0, Localizer.Do($"Could not calculate the item cost from any of the provided recipes:\n"));
-                bestPrice = new CachedPrice(float.PositiveInfinity, new StringBuilder(string.Join("\n", failedRecipes.Select(m => $"- {m}"))));
-                CachedPrices[item.TypeID] = bestPrice;
-                outPrice = bestPrice.Price;
-                reason = bestPrice.Reason;
-                return false;
+                reason = new StringBuilder();
+                reason.AppendLineLoc($"Could not calculate the item cost from any of the provided recipes:");
+                foreach (var recipeError in failedRecipes)
+                    reason.AppendLine($"- {recipeError}");
+                if (hasBuyOrder) reason.AppendLine().AppendLine(buyReason);
+
+                outPrice = hasBuyOrder ? buyPrice : float.PositiveInfinity;
+                CachedPrices[item.TypeID] = new CachedPrice(outPrice, reason);
+                return hasBuyOrder;
             }
             else
             {
@@ -367,6 +376,7 @@ namespace TradeAssistant
             return true;
         }
 
+        public List<LocString> SetSellPrice(int item, float newPrice) => SetSellPrice(Item.Get(item), newPrice);
         public List<LocString> SetSellPrice(Item item, float newPrice)
         {
             newPrice = Mathf.RoundToAcceptedDigits(newPrice);
@@ -380,6 +390,8 @@ namespace TradeAssistant
             });
             return msgs;
         }
+
+        public List<LocString> SetBuyPrice(int item, float newPrice) => SetBuyPrice(Item.Get(item), newPrice);
         public List<LocString> SetBuyPrice(Item item, float newPrice)
         {
             newPrice = Mathf.RoundToAcceptedDigits(newPrice);

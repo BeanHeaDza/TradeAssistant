@@ -1,28 +1,15 @@
 ﻿using Eco.Core.Plugins;
-using Eco.Gameplay.Components;
-using Eco.Gameplay.DynamicValues;
 using Eco.Gameplay.Economy;
 using Eco.Gameplay.Items;
-using Eco.Gameplay.Objects;
 using Eco.Gameplay.Players;
-using Eco.Gameplay.Property;
-using Eco.Gameplay.Settlements;
-using Eco.Gameplay.Skills;
 using Eco.Gameplay.Systems;
-using Eco.Gameplay.Systems.Chat;
 using Eco.Gameplay.Systems.Messaging.Chat.Commands;
 using Eco.Gameplay.Systems.TextLinks;
 using Eco.Gameplay.Systems.Tooltip;
 using Eco.Gameplay.Utils;
-using Eco.Mods.TechTree;
-using Eco.Plugins.Networking;
 using Eco.Shared;
 using Eco.Shared.Localization;
-using Eco.Shared.Math;
-using Eco.Shared.Services;
 using Eco.Shared.Utils;
-using Eco.Shared.Voxel;
-using System;
 using System.Text;
 
 namespace TradeAssistant
@@ -138,31 +125,24 @@ namespace TradeAssistant
             var calc = TradeAssistantCalculator.TryInitialize(user);
             if (calc == null) return;
 
-            var storeSellItemIds = calc.Store.StoreData.SellOffers.Select(o => o.Stack.Item.TypeID).ToList();
+            var storeSellItemIds = calc.Store.StoreData.SellOffers.Select(o => o.Stack.Item.TypeID).Distinct().ToList();
             if (storeSellItemIds.Count == 0)
             {
                 user.TempServerMessage(Localizer.Do($"{calc.Store.Parent.UILink()} has no sell orders."));
                 return;
             }
-            var storeBuyItemIds = calc.Store.StoreData.BuyOffers.Select(o => o.Stack.Item.TypeID).ToList();
-
-            var sellProductsToUpdate = calc.CraftableItems.SelectMany(x => x.Value).Where(p => storeSellItemIds.Contains(p.TypeID)).ToList();
-            if (sellProductsToUpdate.Count == 0)
-            {
-                user.TempServerMessage(Localizer.Do($"None of the items sold by {calc.Store.Parent.UILink()} have recipes on the local crafting tables."));
-                return;
-            }
-            var buyProductsToUpdate = calc.CraftableItems.SelectMany(x => x.Value).Where(p => storeSellItemIds.Contains(p.TypeID) && storeBuyItemIds.Contains(p.TypeID)).ToList();
+            var buyProductsToUpdate = calc.Store.StoreData.BuyOffers.Select(o => o.Stack.Item.TypeID).Distinct().Where(storeSellItemIds.Contains).ToList();
 
             var byProducts = calc.Config.ByProducts.ToHashSet();
+            var craftableItems = calc.CraftableItems.SelectMany(x => x.Value).Select(x => x.TypeID).Distinct().ToHashSet();
             var output = new StringBuilder();
             var updates = new List<LocString>();
             var warnings = new List<LocString>();
 
 
-            foreach (var item in sellProductsToUpdate.OrderBy(p => byProducts.Contains(p.TypeID) ? 0 : 1))
+            foreach (var itemID in storeSellItemIds.OrderBy(p => byProducts.Contains(p) ? 0 : 1))
             {
-                if (calc.TryGetCostPrice(item, out var price, out var reason, out var itemWarnings))
+                if (calc.TryGetCostPrice(itemID, out var price, out var reason, out var itemWarnings))
                 {
                     // SellPrice = Tax + CostPrice * (1 + Profit)
                     // SellPrice = SellPrice * TaxRate + CostPrice * (1 + Profit)
@@ -170,17 +150,17 @@ namespace TradeAssistant
                     // SellPrice * (1 - TaxRate) = CostPrice * (1 + Profit)
                     // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
                     var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) / (1 - EconomyManager.Tax.GetSalesTax(calc.Store.Currency)));
-                    updates.AddRange(calc.SetSellPrice(item, newPrice));
+                    updates.AddRange(calc.SetSellPrice(itemID, newPrice));
                     if (itemWarnings != null)
                         warnings.AddRange(itemWarnings);
                 }
-                else if (!byProducts.Contains(item.TypeID))
-                    output.AppendLineLoc($"Failed to get the cost price of {item.UILink()} ({TextLoc.FoldoutLoc($"Why?", $"Why {item.UILink()}", reason.ToStringLoc())}).");
+                else if (!byProducts.Contains(itemID) && craftableItems.Contains(itemID))
+                    output.AppendLineLoc($"Failed to get the cost price of {Item.Get(itemID).UILink()} ({TextLoc.FoldoutLoc($"Why?", $"Why {Item.Get(itemID).UILink()}", reason.ToStringLoc())}).");
             }
 
-            foreach (var item in buyProductsToUpdate)
-                if (calc.TryGetCostPrice(item, out var price, out var _, out var _))
-                    updates.AddRange(calc.SetBuyPrice(item, price));
+            foreach (var itemID in buyProductsToUpdate)
+                if (calc.TryGetCostPrice(itemID, out var price, out var _, out var _))
+                    updates.AddRange(calc.SetBuyPrice(itemID, price));
 
             // TODO: I'm not happy with how warnings are working at the moment. Removing them for now.
             //if (warnings.Any())
