@@ -5,7 +5,6 @@ using Eco.Gameplay.Players;
 using Eco.Gameplay.Systems;
 using Eco.Gameplay.Systems.Messaging.Chat.Commands;
 using Eco.Gameplay.Systems.TextLinks;
-using Eco.Gameplay.Systems.Tooltip;
 using Eco.Gameplay.Utils;
 using Eco.Shared;
 using Eco.Shared.Localization;
@@ -61,7 +60,7 @@ namespace TradeAssistant
                 var addedForThisTable = tableItems.Select(i => i.TypeID).Where(itemsToAdd.Contains);
                 if (!addedForThisTable.Any()) { continue; }
 
-                calc.Store.CreateCategoryWithOffers(addedForThisTable.ToList(), false);
+                calc.Store.CreateCategoryWithOffers(user.Player, addedForThisTable.ToList(), false);
                 var category = calc.Store.StoreData.SellCategories.Last();
                 category.Name = table;
             }
@@ -109,7 +108,7 @@ namespace TradeAssistant
             }
 
 
-            calc.Store.CreateCategoryWithOffers(items.ToList(), true);
+            calc.Store.CreateCategoryWithOffers(user.Player, items.ToList(), true);
             foreach (var offer in calc.Store.StoreData.BuyOffers.Where(o => items.Contains(o.Stack.Item.TypeID)))
             {
                 offer.Limit = 1;
@@ -149,7 +148,7 @@ namespace TradeAssistant
                     // SellPrice - SellPrice * TaxRate = CostPrice * (1 + Profit)
                     // SellPrice * (1 - TaxRate) = CostPrice * (1 + Profit)
                     // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
-                    var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) / (1 - EconomyManager.Tax.GetSalesTax(calc.Store.Currency)));
+                    var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) / (1 - calc.Store.GetTax()));
                     updates.AddRange(calc.SetSellPrice(itemID, newPrice));
                     if (itemWarnings != null)
                         warnings.AddRange(itemWarnings);
@@ -183,7 +182,7 @@ namespace TradeAssistant
             var calc = TradeAssistantCalculator.TryInitialize(user);
             if (calc == null) return;
 
-            var item = CommandsUtil.ClosestMatchingEntity(user, itemName, Item.AllItems, x => x.GetType().Name, x => x.DisplayName);
+            var item = CommandsUtil.ClosestMatchingEntity(user, itemName, Item.AllItemsExceptHidden, x => x.GetType().Name, x => x.DisplayName);
             if (item == null) return;
             if (calc.TryGetCostPrice(item, out var price, out var reason, out var _))
             {
@@ -192,11 +191,11 @@ namespace TradeAssistant
                     msg.AppendLineLoc($"{user.UILink()} shared this price explanation with you:");
                 else
                     whoToSendTo = user;
-                var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) / (1 - EconomyManager.Tax.GetSalesTax(calc.Store.Currency)));
+                var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) / (1 - calc.Store.GetTax()));
                 var costPriceLink = TextLoc.FoldoutLoc($"CostPrice", $"Cost price of {item.UILink()}", reason.ToStringLoc());
                 msg.AppendLineLoc($"Sell price for {item.UILink()}");
                 msg.AppendLineLoc($"SellPrice = {costPriceLink} * (1 + Profit) / (1 - TaxRate)");
-                msg.AppendLineLoc($"          = {Text.StyledNum(price)} * (1 + {Text.StyledNum(calc.Config.Profit / 100f)}) / (1 - {Text.StyledNum(EconomyManager.Tax.GetSalesTax(calc.Store.Currency))})");
+                msg.AppendLineLoc($"          = {Text.StyledNum(price)} * (1 + {Text.StyledNum(calc.Config.Profit / 100f)}) / (1 - {Text.StyledNum(calc.Store.GetTax())})");
                 msg.AppendLineLoc($"          = {Text.StyledNum(newPrice)}");
                 whoToSendTo.TempServerMessage(msg.ToStringLoc());
             }

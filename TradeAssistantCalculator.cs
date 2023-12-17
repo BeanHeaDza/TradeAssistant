@@ -1,20 +1,23 @@
 ﻿using Eco.Gameplay.Components;
+using Eco.Gameplay.Components.Store;
 using Eco.Gameplay.DynamicValues;
 using Eco.Gameplay.Economy;
 using Eco.Gameplay.Items;
+using Eco.Gameplay.Items.Recipes;
 using Eco.Gameplay.Objects;
 using Eco.Gameplay.Players;
 using Eco.Gameplay.Property;
+using Eco.Gameplay.Settlements;
+using Eco.Gameplay.Systems.NewTooltip;
 using Eco.Gameplay.Systems.TextLinks;
-using Eco.Gameplay.Systems.Tooltip;
 using Eco.Shared;
+using Eco.Shared.Items;
 using Eco.Shared.Localization;
 using Eco.Shared.Math;
 using Eco.Shared.Utils;
 using Eco.Shared.Voxel;
 using System.Linq;
 using System.Text;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace TradeAssistant
 {
@@ -59,13 +62,6 @@ namespace TradeAssistant
             var sb = new StringBuilder();
             if (TryGetStoreAndCraftingTables(sb, user, out var store, out var craftingTables, out var craftableItems))
             {
-                //If the sales tax is 100% the mod won't work
-                if (EconomyManager.Tax.GetSalesTax(store!.Currency) == 1)
-                {
-                    user.TempServerMessage(Localizer.Do($"Price calculations won't work when tax is set to 100%"));
-                    return null;
-                }
-
                 //If the profit % is set to -100% the mod calculations won't work
                 if (user.Config().Profit == -100f)
                 {
@@ -84,7 +80,7 @@ namespace TradeAssistant
             return CraftingTables
                 .SelectMany(w => w.Recipes.Where(recipe => recipe.RequiredSkills.All(s => s.IsMet(User))))
                 .SelectMany(r => r.Recipes.Skip(r.CraftableDefault ? 0 : 1))
-                .SelectMany(r => r.Items.Select(i => new { product = i.Item, r.Ingredients }))
+                .SelectMany(r => r.Products.Select(i => new { product = i.Item, r.Ingredients }))
                 .SelectMany(x => x.Ingredients.Select(i => new { x.product, ingredient = i }))
                 .SelectMany(x => x.ingredient.IsSpecificItem ? new[] { new { x.product, item = x.ingredient.Item } } : x.ingredient.Tag.TaggedItems().Select(t => new { x.product, item = t }))
                 .Where(x => !x.item.Hidden)
@@ -122,7 +118,7 @@ namespace TradeAssistant
 
             var recipes = CraftingTables.SelectMany(ct => ct.Recipes
                 .SelectMany(rf => rf.Recipes.Skip(rf.CraftableDefault ? 0 : 1).Select(r => (ct, r)))
-                .Where(x => x.r.Items.Any(i => i.Item.TypeID == item.TypeID))
+                .Where(x => x.r.Products.Any(i => i.Item.TypeID == item.TypeID))
             ).ToList();
 
             if (!recipes.Any())
@@ -142,15 +138,15 @@ namespace TradeAssistant
                 var explanation = new StringBuilder();
 
                 // Ignore by-products if there is more than one product, and make sure the only product is the specified item
-                var products = recipe.Items;
+                var products = recipe.Products;
                 var resourceEfficiencyContext = new ModuleContext(User, craftingTable.Parent.Position, craftingTable.ResourceEfficiencyModule);
-                if (recipe.Items.Count > 1)
+                if (recipe.Products.Count > 1)
                 {
-                    products = recipe.Items.Where(p => !Config.ByProducts.Any(byProductId => byProductId == p.Item.TypeID)).ToList();
+                    products = recipe.Products.Where(p => !Config.ByProducts.Any(byProductId => byProductId == p.Item.TypeID)).ToList();
                     if (products.Count > 1)
                         failedRecipes.AddLoc($"{recipe.UILink()} has multiple output products, specify which are by-product(s): {string.Join(", ", products.Select(p => p.Item.UILink()))}");
                     else if (products.Count == 0)
-                        failedRecipes.AddLoc($"All the products ({string.Join(", ", recipe.Items.Select(p => p.Item.UILink()))}) of the {recipe.UILink()} has been marked as waste, one should not be. Run {Text.Name("/ta config")} to set the by-products.");
+                        failedRecipes.AddLoc($"All the products ({string.Join(", ", recipe.Products.Select(p => p.Item.UILink()))}) of the {recipe.UILink()} has been marked as waste, one should not be. Run {Text.Name("/ta config")} to set the by-products.");
                     if (products.Count != 1) continue;
                 }
                 var product = products[0];
@@ -161,7 +157,7 @@ namespace TradeAssistant
                 }
 
                 // Check the price of the by-products
-                var byProducts = recipe.Items.Where(p => p != product).Select(p => ParseByProduct(p, resourceEfficiencyContext, craftingTable)).ToList();
+                var byProducts = recipe.Products.Where(p => p != product).Select(p => ParseByProduct(p, resourceEfficiencyContext, craftingTable)).ToList();
                 var unsetByProduct = byProducts.Where(p => float.IsPositiveInfinity(p.Price)).FirstOrDefault();
                 if (unsetByProduct != null)
                 {
@@ -297,16 +293,15 @@ namespace TradeAssistant
         {
             if (!StoreSellPrices.TryGetValue(product.Item.TypeID, out var storePrice))
                 return new ProductPrice(product, float.PositiveInfinity, Localizer.Do($"No sell price set for the by-product {product.Item.UILink()}."));
-
             // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
             // CostPrice = SellPrice / (1 + Profit) * (1 - TaxRate)
-            var costPrice = storePrice / (1 + Config.Profit / 100f) * (1 - EconomyManager.Tax.GetSalesTax(Store.Currency));
+            var costPrice = storePrice / (1 + Config.Profit / 100f) * (1 - Store.GetTax());
             var quantity = product.Quantity.GetCurrentValue(resourceEfficiency, craftingTable);
             var totalCostPrice = costPrice * quantity;
 
             var costReasonContent = new LocStringBuilder();
             costReasonContent.AppendLine(Localizer.Do($"CostPrice = SellPrice / (1 + Profit) * (1 - TaxRate)"));
-            costReasonContent.AppendLine(Localizer.Do($"          = {Text.StyledNum(storePrice)} / (1 + {Text.StyledNum(Config.Profit / 100f)}) * (1 - {Text.StyledNum(EconomyManager.Tax.GetSalesTax(Store.Currency))})"));
+            costReasonContent.AppendLine(Localizer.Do($"          = {Text.StyledNum(storePrice)} / (1 + {Text.StyledNum(Config.Profit / 100f)}) * (1 - {Text.StyledNum(Store.GetTax())})"));
             costReasonContent.AppendLine(Localizer.Do($"          = {Text.StyledNum(costPrice)}"));
             var costLink = TextLoc.Foldout(Localizer.Do($"CostPrice ({Text.StyledNum(costPrice)})"), Localizer.Do($"By-Product {product.Item.UILink()} cost price"), costReasonContent.ToLocString());
 
@@ -323,7 +318,7 @@ namespace TradeAssistant
             var playerPlot = user.Position.XZi().ToPlotPos();
 
             // Check if the user is standing in a deed
-            var accessedDeeds = PropertyManager.Obj.Deeds.Where(d => d.IsAuthorized(user.Player));
+            var accessedDeeds = PropertyManager.Obj.Deeds.Where(d => d.IsAuthorized(user, AccessType.OwnerAccess));
             var deedStandingIn = accessedDeeds.FirstOrDefault(d => d.Plots.Any(p => p.PlotPos == playerPlot));
             if (deedStandingIn == null)
             {
@@ -332,7 +327,7 @@ namespace TradeAssistant
             }
 
             // Get all the stores in the deed
-            var stores = WorldObjectUtil.AllObjsWithComponent<StoreComponent>().Where(store => store.IsAuthorized(user, Eco.Shared.Items.AccessType.OwnerAccess) && deedStandingIn.Plots.Any(p => p.PlotPos == store.Parent.PlotPos()));
+            var stores = WorldObjectUtil.AllObjsWithComponent<StoreComponent>().Where(store => store.IsAuthorized(user, AccessType.OwnerAccess) && deedStandingIn.Plots.Any(p => p.PlotPos == store.Parent.PlotPos()));
             if (!stores.Any())
             {
                 sb.AppendLine(Localizer.Do($"You don't have a store you have owner access to in the plot you are standing in"));
@@ -361,7 +356,7 @@ namespace TradeAssistant
                 .SelectMany(ct => ct.Recipes
                     .Where(recipe => recipe.RequiredSkills.All(s => s.IsMet(user)))
                     .SelectMany(rf => rf.CraftableDefault ? rf.Recipes : rf.Recipes.Skip(1))
-                    .SelectMany(r => r.Items)
+                    .SelectMany(r => r.Products)
                     .Select(p => new { CraftingTable = ct.Parent.DisplayName, p.Item })
                 )
                 .DistinctBy(x => $"{x.CraftingTable}:{x.Item.Name}")
@@ -383,7 +378,7 @@ namespace TradeAssistant
             StoreSellPrices[item.TypeID] = newPrice;
 
             var msgs = new List<LocString>();
-            Store.StoreData.SellOffers.Where(o => o.Stack.Item.SameType(item) && o.Price != newPrice).ForEach(o =>
+            Store.StoreData.SellOffers.Where(o => o.Stack.Item == item && o.Price != newPrice).ForEach(o =>
             {
                 msgs.AddLoc($"Updating sell price of {item.UILink()} from {Text.StyledNum(o.Price)} to {Text.StyledNum(newPrice)}");
                 o.Price = newPrice;
@@ -398,7 +393,7 @@ namespace TradeAssistant
             StoreBuyPrices[item.TypeID] = newPrice;
 
             var msgs = new List<LocString>();
-            Store.StoreData.BuyOffers.Where(o => o.Stack.Item.SameType(item) && o.Price != newPrice).ForEach(o =>
+            Store.StoreData.BuyOffers.Where(o => o.Stack.Item == item && o.Price != newPrice).ForEach(o =>
             {
                 msgs.AddLoc($"Updating buy price of {item.UILink()} from {Text.StyledNum(o.Price)} to {Text.StyledNum(newPrice)}");
                 o.Price = newPrice;

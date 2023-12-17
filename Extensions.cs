@@ -1,4 +1,6 @@
-﻿using Eco.Gameplay.Players;
+﻿using Eco.Gameplay.Components.Store;
+using Eco.Gameplay.Players;
+using Eco.Gameplay.Settlements;
 using Eco.Gameplay.Systems.Messaging.Notifications;
 using Eco.Shared.Localization;
 using Eco.Shared.Services;
@@ -35,6 +37,13 @@ namespace TradeAssistant
         public static void AddLoc(this List<LocString> list, FormattableString msg)
         {
             list.Add(Localizer.Do(msg));
+        }
+
+        public static float GetTax(this StoreComponent store)
+        {
+            var settlement = SettlementUtils.GetSettlementsAtPos(store.Parent.Position3i);
+            if (settlement == null) return 0;
+            return settlement.Sum(s => s.Taxes.GetSalesTax(store.Currency));
         }
     }
 }
