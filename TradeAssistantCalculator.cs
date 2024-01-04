@@ -115,6 +115,29 @@ namespace TradeAssistant
             }
             CachedPrices.Add(item.TypeID, new CachedPrice(float.PositiveInfinity, new StringBuilder(Localizer.Do($"Recursive recipe!"))));
 
+            if (Config.FrozenSellPrices.Any(typeID => typeID == item.TypeID))
+            {
+                var productIsSold = StoreSellPrices.TryGetValue(item.TypeID, out outPrice);
+                if (productIsSold)
+                {
+                    // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
+                    // CostPrice = SellPrice / (1 + Profit) * (1 - TaxRate)
+                    var costPrice = outPrice / (1 + Config.Profit / 100f) * (1 - Store.GetTax());
+                    reason = new StringBuilder(Localizer.Do($"{item.UILink()} has a frozen sell price and is sold at a price of {outPrice.ToStyledNum()}"));
+                    reason.AppendLineLoc($"Cost Price = SellPrice / (1 + Profit) * (1 - TaxRate)");
+                    reason.AppendLineLoc($"Cost Price = {outPrice.ToStyledNum()} / (1 + {(Config.Profit / 100f).ToStyledNum()}) * (1 - {Store.GetTax().ToStyledNum()}) = {costPrice.ToStyledNum()}");
+                    outPrice = costPrice;
+                }
+                else
+                {
+                    outPrice = float.PositiveInfinity;
+                    reason = new StringBuilder(Localizer.Do($"No sell order for item with frozen sell price: {item.UILink()}"));
+                }
+
+                CachedPrices[item.TypeID] = new CachedPrice(outPrice, reason);
+                return productIsSold;
+            }
+
 
             var recipes = CraftingTables.SelectMany(ct => ct.Recipes
                 .SelectMany(rf => rf.Recipes.Skip(rf.CraftableDefault ? 0 : 1).Select(r => (ct, r)))
@@ -378,7 +401,7 @@ namespace TradeAssistant
             StoreSellPrices[item.TypeID] = newPrice;
 
             var msgs = new List<LocString>();
-            Store.StoreData.SellOffers.Where(o => o.Stack.Item == item && o.Price != newPrice).ForEach(o =>
+            Store.StoreData.SellOffers.Where(o => o.Stack.Item.TypeID == item.TypeID && o.Price != newPrice).ForEach(o =>
             {
                 msgs.AddLoc($"Updating sell price of {item.UILink()} from {Text.StyledNum(o.Price)} to {Text.StyledNum(newPrice)}");
                 o.Price = newPrice;
@@ -393,7 +416,7 @@ namespace TradeAssistant
             StoreBuyPrices[item.TypeID] = newPrice;
 
             var msgs = new List<LocString>();
-            Store.StoreData.BuyOffers.Where(o => o.Stack.Item == item && o.Price != newPrice).ForEach(o =>
+            Store.StoreData.BuyOffers.Where(o => o.Stack.Item.TypeID == item.TypeID && o.Price != newPrice).ForEach(o =>
             {
                 msgs.AddLoc($"Updating buy price of {item.UILink()} from {Text.StyledNum(o.Price)} to {Text.StyledNum(newPrice)}");
                 o.Price = newPrice;

@@ -4,6 +4,7 @@ using Eco.Gameplay.Settlements;
 using Eco.Gameplay.Systems.Messaging.Notifications;
 using Eco.Shared.Localization;
 using Eco.Shared.Services;
+using Eco.Shared.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,6 +45,11 @@ namespace TradeAssistant
             var settlement = SettlementUtils.GetSettlementsAtPos(store.Parent.Position3i);
             if (settlement == null) return 0;
             return settlement.Sum(s => s.Taxes.GetSalesTax(store.Currency));
+        }
+
+        public static string ToStyledNum(this float number)
+        {
+            return Text.StyledNum(number);
         }
     }
 }

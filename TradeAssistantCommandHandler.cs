@@ -124,7 +124,7 @@ namespace TradeAssistant
             var calc = TradeAssistantCalculator.TryInitialize(user);
             if (calc == null) return;
 
-            var storeSellItemIds = calc.Store.StoreData.SellOffers.Select(o => o.Stack.Item.TypeID).Distinct().ToList();
+            var storeSellItemIds = calc.Store.StoreData.SellOffers.Where(o => !calc.Config.FrozenSellPrices.Contains(o.Stack.Item.TypeID)).Select(o => o.Stack.Item.TypeID).Distinct().ToList();
             if (storeSellItemIds.Count == 0)
             {
                 user.TempServerMessage(Localizer.Do($"{calc.Store.Parent.UILink()} has no sell orders."));
