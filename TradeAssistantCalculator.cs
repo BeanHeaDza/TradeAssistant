@@ -341,7 +341,7 @@ namespace TradeAssistant
             var playerPlot = user.Position.XZi().ToPlotPos();
 
             // Check if the user is standing in a deed
-            var accessedDeeds = PropertyManager.Obj.Deeds.Where(d => d.IsAuthorized(user, AccessType.OwnerAccess));
+            var accessedDeeds = PropertyManager.Obj.Deeds.Where(d => d.IsAuthorized(user, AccessType.FullAccess));
             var deedStandingIn = accessedDeeds.FirstOrDefault(d => d.Plots.Any(p => p.PlotPos == playerPlot));
             if (deedStandingIn == null)
             {
@@ -350,7 +350,7 @@ namespace TradeAssistant
             }
 
             // Get all the stores in the deed
-            var stores = WorldObjectUtil.AllObjsWithComponent<StoreComponent>().Where(store => store.IsAuthorized(user, AccessType.OwnerAccess) && deedStandingIn.Plots.Any(p => p.PlotPos == store.Parent.PlotPos()));
+            var stores = WorldObjectUtil.AllObjsWithComponent<StoreComponent>().Where(store => store.IsRPCAuthorized(user.Player, AccessType.FullAccess, Array.Empty<object>()) && deedStandingIn.Plots.Any(p => p.PlotPos == store.Parent.PlotPos()));
             if (!stores.Any())
             {
                 sb.AppendLine(Localizer.Do($"You don't have a store you have owner access to in the plot you are standing in"));
@@ -365,7 +365,7 @@ namespace TradeAssistant
 
             // Get all the crafting tables in the deed
             craftingTables = WorldObjectUtil.AllObjsWithComponent<CraftingComponent>()
-                .Where(workbench => workbench.IsAuthorized(user, Eco.Shared.Items.AccessType.OwnerAccess) && deedStandingIn.Plots.Any(p => p.PlotPos == workbench.Parent.PlotPos()))
+                .Where(workbench => workbench.IsRPCAuthorized(user.Player, AccessType.FullAccess, Array.Empty<object>()) && deedStandingIn.Plots.Any(p => p.PlotPos == workbench.Parent.PlotPos()))
                 .DistinctBy(craftingTable => $"{craftingTable.Parent.Name}:{(craftingTable.ResourceEfficiencyModule == null ? "null" : craftingTable.ResourceEfficiencyModule.Name)}")
                 .ToList();
             if (!craftingTables.Any())
