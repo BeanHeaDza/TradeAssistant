@@ -36,12 +36,12 @@ namespace TradeAssistant
         }
 
         [ChatSubCommand(nameof(TradeAssistant), "Add sell orders for all the products you are able to craft in this property's Crafting Tables.", ChatAuthorizationLevel.User)]
-        public static void SetupSell(User user)
+        public static async Task SetupSell(User user)
         {
-            var calc = TradeAssistantCalculator.TryInitialize(user);
+            var calc =await TradeAssistantCalculator.TryInitialize(user);
             if (calc == null)
                 return;
-
+            
             var sb = new StringBuilder();
 
             var items = calc.CraftableItems.SelectMany(x => x.Value).Select(p => p.TypeID).ToHashSet();
@@ -72,9 +72,9 @@ namespace TradeAssistant
         }
 
         [ChatSubCommand(nameof(TradeAssistant), "Add buy orders for all the ingredients you need to make the products you're selling", ChatAuthorizationLevel.User)]
-        public static void SetupBuy(User user)
+        public static async Task SetupBuy(User user)
         {
-            var calc = TradeAssistantCalculator.TryInitialize(user);
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
             if (calc == null)
                 return;
 
@@ -119,9 +119,9 @@ namespace TradeAssistant
 
 
         [ChatSubCommand(nameof(TradeAssistant), "Update the sell price of everything in the store based on the configured profit and cost per calory", ChatAuthorizationLevel.User)]
-        public static void Update(User user)
+        public static async Task Update(User user)
         {
-            var calc = TradeAssistantCalculator.TryInitialize(user);
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
             if (calc == null) return;
 
             var storeSellItemIds = calc.Store.StoreData.SellOffers.Where(o => !calc.Config.FrozenSellPrices.Contains(o.Stack.Item.TypeID)).Select(o => o.Stack.Item.TypeID).Distinct().ToList();
@@ -177,9 +177,9 @@ namespace TradeAssistant
             }
         }
         [ChatSubCommand(nameof(TradeAssistant), "Explains how the sell price is calculated for a product", ChatAuthorizationLevel.User)]
-        public static void Explain(User user, string itemName, User? whoToSendTo = null)
+        public static async Task Explain(User user, string itemName, User? whoToSendTo = null)
         {
-            var calc = TradeAssistantCalculator.TryInitialize(user);
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
             if (calc == null) return;
 
             var item = CommandsUtil.ClosestMatchingEntity(user, itemName, Item.AllItemsExceptHidden, x => x.GetType().Name, x => x.DisplayName);
