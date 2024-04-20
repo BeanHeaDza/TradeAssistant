@@ -8,8 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Eco.ReferenceAssemblies" Version="0.10.1.2-beta-release-584" />
-    <PackageReference Include="Fody" Version="6.6.4">
+    <PackageReference Include="Eco.ReferenceAssemblies" Version="0.10.2.1-beta-release-647" />
+    <PackageReference Include="Fody" Version="6.8.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

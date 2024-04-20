@@ -57,10 +57,22 @@ namespace TradeAssistant
                 .ToDictionary(x => x.Key, x => x.Min(o => o.Price));
         }
 
-        public static TradeAssistantCalculator? TryInitialize(User user)
+        public static async Task<TradeAssistantCalculator?> TryInitialize(User user)
         {
             var sb = new StringBuilder();
-            if (TryGetStoreAndCraftingTables(sb, user, out var store, out var craftingTables, out var craftableItems))
+            var deed = GetDeed(sb, user);
+            if (deed == null) {
+                user.TempServerMessage(sb);
+                return null;
+            }
+
+            var store = await GetStore(sb, user, deed);
+            if (store == null) {
+                user.TempServerMessage(sb);
+                return null;
+            }
+             
+            if (TryGetStoreAndCraftingTables(sb, user, deed, out var craftingTables, out var craftableItems))
             {
                 //If the profit % is set to -100% the mod calculations won't work
                 if (user.Config().Profit == -100f)
@@ -331,46 +343,53 @@ namespace TradeAssistant
             var reason = Localizer.Do($"{Text.StyledNum(quantity)} {product.Item.UILink()} * {costLink} = {Text.StyledNum(totalCostPrice)}");
             return new ProductPrice(product, totalCostPrice, reason);
         }
-        private static bool TryGetStoreAndCraftingTables(StringBuilder sb, User user, out StoreComponent? store, out List<CraftingComponent>? craftingTables, out Dictionary<LocString, List<Item>>? craftableItems)
-        {
-            store = null;
-            craftingTables = null;
-            craftableItems = null;
 
+        private static Deed? GetDeed(StringBuilder sb, User user) {
             // Get the plot the user is currently standing in
             var playerPlot = user.Position.XZi().ToPlotPos();
 
             // Check if the user is standing in a deed
             var accessedDeeds = PropertyManager.Obj.Deeds.Where(d => d.IsAuthorized(user, AccessType.FullAccess));
             var deedStandingIn = accessedDeeds.FirstOrDefault(d => d.Plots.Any(p => p.PlotPos == playerPlot));
-            if (deedStandingIn == null)
-            {
+            if (deedStandingIn == null) {
                 sb.AppendLine(Localizer.Do($"You have to stand in a deed you have access to when you run this command"));
-                return false;
+                return null;
             }
-
-            // Get all the stores in the deed
-            var stores = WorldObjectUtil.AllObjsWithComponent<StoreComponent>().Where(store => store.IsRPCAuthorized(user.Player, AccessType.FullAccess, Array.Empty<object>()) && deedStandingIn.Plots.Any(p => p.PlotPos == store.Parent.PlotPos()));
-            if (!stores.Any())
-            {
+            return deedStandingIn;
+        }
+        private static async Task<StoreComponent?> GetStore(StringBuilder sb, User user, Deed deed) {
+            var stores = WorldObjectUtil.AllObjsWithComponent<StoreComponent>()
+                .Where(store => store.IsRPCAuthorized(user.Player, AccessType.FullAccess, Array.Empty<object>())
+                    && deed.Plots.Any(p => p.PlotPos == store.Parent.PlotPos()))
+                .OrderBy(store=>(store.Parent.Position - user.Position).LengthSquared())
+                .Take(2)
+                .ToList();
+            if (stores.Count == 0) {
                 sb.AppendLine(Localizer.Do($"You don't have a store you have owner access to in the plot you are standing in"));
-                return false;
+                return null;
             }
-            else if (stores.Take(2).Count() > 1)
-            {
-                sb.AppendLine(Localizer.Do($"You have more than one store on this property. The mod doesn't support that yet."));
-                return false;
-            }
-            store = stores.First();
+            var store = stores.First();
+
+            if (stores.Count == 1 || await user.ConfirmBoxLoc($"You have multiple stores on your Plot, please confirm to apply the command to the nearest store: {store.Parent.MarkedUpName}"))
+                return store;
+
+            sb.AppendLine(Localizer.Do($"You have more than one store on this property and declined to use the current closes store."));
+            return null;    
+        }
+        private static bool TryGetStoreAndCraftingTables(StringBuilder sb, User user,Deed deed, out List<CraftingComponent>? craftingTables, out Dictionary<LocString, List<Item>>? craftableItems)
+        {
+            craftingTables = null;
+            craftableItems = null;
+
 
             // Get all the crafting tables in the deed
             craftingTables = WorldObjectUtil.AllObjsWithComponent<CraftingComponent>()
-                .Where(workbench => workbench.IsRPCAuthorized(user.Player, AccessType.FullAccess, Array.Empty<object>()) && deedStandingIn.Plots.Any(p => p.PlotPos == workbench.Parent.PlotPos()))
+                .Where(workbench => workbench.IsRPCAuthorized(user.Player, AccessType.FullAccess, Array.Empty<object>()) && deed.Plots.Any(p => p.PlotPos == workbench.Parent.PlotPos()))
                 .DistinctBy(craftingTable => $"{craftingTable.Parent.Name}:{(craftingTable.ResourceEfficiencyModule == null ? "null" : craftingTable.ResourceEfficiencyModule.Name)}")
                 .ToList();
             if (!craftingTables.Any())
             {
-                sb.AppendLine(Localizer.Do($"Could not find any crafting tables in {deedStandingIn.UILink()}"));
+                sb.AppendLine(Localizer.Do($"Could not find any crafting tables in {deed.UILink()}"));
                 return false;
             }
 
