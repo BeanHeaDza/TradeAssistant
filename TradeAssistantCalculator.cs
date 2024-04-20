@@ -60,7 +60,7 @@ namespace TradeAssistant
         public static async Task<TradeAssistantCalculator?> TryInitialize(User user)
         {
             var sb = new StringBuilder();
-            var deed = await GetDeed(sb, user);
+            var deed = GetDeed(sb, user);
             if (deed == null) {
                 user.TempServerMessage(sb);
                 return null;
@@ -344,7 +344,7 @@ namespace TradeAssistant
             return new ProductPrice(product, totalCostPrice, reason);
         }
 
-        private static async Task<Deed?> GetDeed(StringBuilder sb, User user) {
+        private static Deed? GetDeed(StringBuilder sb, User user) {
             // Get the plot the user is currently standing in
             var playerPlot = user.Position.XZi().ToPlotPos();
 
@@ -358,7 +358,12 @@ namespace TradeAssistant
             return deedStandingIn;
         }
         private static async Task<StoreComponent?> GetStore(StringBuilder sb, User user, Deed deed) {
-            var stores = WorldObjectUtil.AllObjsWithComponent<StoreComponent>().Where(store => store.IsRPCAuthorized(user.Player, AccessType.FullAccess, Array.Empty<object>()) && deed.Plots.Any(p => p.PlotPos == store.Parent.PlotPos())).OrderBy(store=>(store.Parent.Position - user.Position).LengthSquared()).ToList();
+            var stores = WorldObjectUtil.AllObjsWithComponent<StoreComponent>()
+                .Where(store => store.IsRPCAuthorized(user.Player, AccessType.FullAccess, Array.Empty<object>())
+                    && deed.Plots.Any(p => p.PlotPos == store.Parent.PlotPos()))
+                .OrderBy(store=>(store.Parent.Position - user.Position).LengthSquared())
+                .Take(2)
+                .ToList();
             if (stores.Count == 0) {
                 sb.AppendLine(Localizer.Do($"You don't have a store you have owner access to in the plot you are standing in"));
                 return null;
