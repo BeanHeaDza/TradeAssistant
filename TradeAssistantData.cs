@@ -2,6 +2,7 @@
 using Eco.Core.Serialization;
 using Eco.Core.Utils;
 using Eco.Gameplay.Items;
+using Eco.Gameplay.Players;
 using Eco.Gameplay.PropertyHandling;
 using Eco.Gameplay.Settlements;
 using Eco.Gameplay.Utils;
@@ -28,16 +29,19 @@ namespace TradeAssistant
         [Serialized] public float CostPer1000Calories { get; set; } = 1f;
         [Serialized] public ThreadSafeList<int> ByProducts { get; set; } = new();
         [Serialized] public ThreadSafeList<int> FrozenSellPrices { get; set; } = new();
+        [Serialized] public ThreadSafeList<int> PartnerPlayers { get; set; } = new();
 
         public UserConfigUI ToUI()
         {
-            UserConfigUI ui = new UserConfigUI
+            UserConfigUI ui = new()
             {
                 Profit = Profit,
                 CostPerThousandCalories = CostPer1000Calories
             };
-            ByProducts.Select(id => Item.Get(id)).Where(p => p != null).ForEach(p => ui.ByProducts.Add(p));
-            FrozenSellPrices.Select(id => Item.Get(id)).Where(p => p != null).ForEach(p => ui.FrozenSellPrices.Add(p));
+            ByProducts.Select(id => Item.Get(id)).Where(p => p != null).ForEach(ui.ByProducts.Add);
+            FrozenSellPrices.Select(id => Item.Get(id)).Where(p => p != null).ForEach(ui.FrozenSellPrices.Add);
+            PartnerPlayers.Select(id => UserManager.FindUserByID(id)).Where(p => p != null).ForEach(ui.Partners.Add);
+
             return ui;
         }
 
@@ -49,6 +53,9 @@ namespace TradeAssistant
             ByProducts.AddRange(config.ByProducts.Select(p => p.TypeID));
             FrozenSellPrices.Clear();
             FrozenSellPrices.AddRange(config.FrozenSellPrices.Select(p => p.TypeID));
+            PartnerPlayers.Clear();
+            PartnerPlayers.AddRange(config.Partners.Select(p => p.Id));
+            
         }
     }
 
@@ -58,11 +65,13 @@ namespace TradeAssistant
         [Eco] public float CostPerThousandCalories { get; set; } = 1f;
         [Eco, AllowEmpty] public ControllerList<Item> ByProducts { get; set; }
         [Eco, AllowEmpty] public ControllerList<Item> FrozenSellPrices { get; set; }
+        [Eco, AllowEmpty] public ControllerList<User> Partners { get; set; }
 
         public UserConfigUI()
         {
             ByProducts = new ControllerList<Item>(this, nameof(ByProducts));
             FrozenSellPrices = new ControllerList<Item>(this, nameof(FrozenSellPrices));
+            Partners = new ControllerList<User>(this, nameof(Partners));
         }
 
 
