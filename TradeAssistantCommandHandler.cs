@@ -2,7 +2,9 @@
 using Eco.Gameplay.Economy;
 using Eco.Gameplay.Items;
 using Eco.Gameplay.Players;
+using Eco.Gameplay.StrangeCloudGameplay;
 using Eco.Gameplay.Systems;
+using Eco.Gameplay.Systems.EcoMarketplace;
 using Eco.Gameplay.Systems.Messaging.Chat.Commands;
 using Eco.Gameplay.Systems.TextLinks;
 using Eco.Gameplay.Utils;
@@ -46,7 +48,7 @@ namespace TradeAssistant
 
             var items = calc.CraftableItems.SelectMany(x => x.Value).Select(p => p.TypeID).ToHashSet();
             var soldItems = calc.Store.StoreData.SellOffers.Select(o => o.Stack.Item.TypeID).ToHashSet();
-            var itemsToAdd = items.Where(i => !soldItems.Contains(i)).ToList();
+            var itemsToAdd = items.Where(i => !soldItems.Contains(i)).Where(i => StrangeWorldsPlugin.Obj.Config.AllowPaidItemsInPlayerStores || !i.IsPaidItem()).ToList();
 
             if (!itemsToAdd.Any())
             {
