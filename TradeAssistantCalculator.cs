@@ -49,11 +49,13 @@ namespace TradeAssistant
             Config = config;
 
             StoreBuyPrices = store.StoreData.BuyOffers
-                .GroupBy(o => o.Stack.Item.TypeID)
+                .SelectMany(o => o.OfferedItemTypeIDs().Select(typeID => new { typeID, o.Price }))
+                .GroupBy(x => x.typeID)
                 .ToDictionary(x => x.Key, x => x.Max(o => o.Price));
 
             StoreSellPrices = store.StoreData.SellOffers
-                .GroupBy(o => o.Stack.Item.TypeID)
+                .SelectMany(o => o.OfferedItemTypeIDs().Select(typeID => new { typeID, o.Price }))
+                .GroupBy(x => x.typeID)
                 .ToDictionary(x => x.Key, x => x.Min(o => o.Price));
         }
 
@@ -428,9 +430,9 @@ namespace TradeAssistant
             StoreSellPrices[item.TypeID] = newPrice;
 
             var msgs = new List<LocString>();
-            Store.StoreData.SellOffers.Where(o => o.Stack.Item.TypeID == item.TypeID && o.Price != newPrice).ForEach(o =>
+            Store.StoreData.SellOffers.Where(o => o.MatchesTypeID(item.TypeID) && o.Price != newPrice).ForEach(o =>
             {
-                msgs.AddLoc($"Updating sell price of {item.UILink()} from {Text.StyledNum(o.Price)} to {Text.StyledNum(newPrice)}");
+                msgs.AddLoc($"{Text.Positive(Localizer.DoStr("Updating sell price"))} of {item.UILink()} from {Text.StyledNum(o.Price)} to {Text.StyledNum(newPrice)}");
                 o.Price = newPrice;
             });
             return msgs;
@@ -443,9 +445,9 @@ namespace TradeAssistant
             StoreBuyPrices[item.TypeID] = newPrice;
 
             var msgs = new List<LocString>();
-            Store.StoreData.BuyOffers.Where(o => o.Stack.Item.TypeID == item.TypeID && o.Price != newPrice).ForEach(o =>
+            Store.StoreData.BuyOffers.Where(o => o.MatchesTypeID(item.TypeID) && o.Price != newPrice).ForEach(o =>
             {
-                msgs.AddLoc($"Updating buy price of {item.UILink()} from {Text.StyledNum(o.Price)} to {Text.StyledNum(newPrice)}");
+                msgs.AddLoc($"{Text.Positive(Localizer.DoStr("Updating buy price"))} of {item.UILink()} from {Text.StyledNum(o.Price)} to {Text.StyledNum(newPrice)}");
                 o.Price = newPrice;
             });
             return msgs;

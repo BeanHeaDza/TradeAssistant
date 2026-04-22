@@ -1,4 +1,6 @@
-﻿using Eco.Gameplay.Components.Store;
+﻿using Eco.Gameplay.Components;
+using Eco.Gameplay.Components.Store;
+using Eco.Gameplay.Items;
 using Eco.Gameplay.Players;
 using Eco.Gameplay.Settlements;
 using Eco.Gameplay.Systems.Messaging.Notifications;
@@ -15,6 +17,24 @@ namespace TradeAssistant
 {
     public static class Extensions
     {
+        public static IEnumerable<int> OfferedItemTypeIDs(this TradeOffer offer)
+        {
+            if (offer.Stack?.Item != null)
+                return new[] { offer.Stack.Item.TypeID };
+
+            return Item.AllItemsExceptHidden
+                .Where(offer.MeetsSpecialRequirements)
+                .Select(i => i.TypeID);
+        }
+
+        public static bool MatchesTypeID(this TradeOffer offer, int typeID)
+        {
+            if (offer.Stack?.Item != null)
+                return offer.Stack.Item.TypeID == typeID;
+
+            return offer.MeetsSpecialRequirements(Item.Get(typeID));
+        }
+
         public static void TempServerMessage(this User user, StringBuilder message, NotificationCategory category = NotificationCategory.Notifications, NotificationStyle style = NotificationStyle.Chat)
         {
             TempServerMessage(user, message.ToStringLoc(), category, style);
