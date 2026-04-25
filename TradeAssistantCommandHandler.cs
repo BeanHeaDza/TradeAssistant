@@ -46,27 +46,39 @@ namespace TradeAssistant
             
             var sb = new StringBuilder();
 
-            var items = calc.CraftableItems.SelectMany(x => x.Value).Select(p => p.TypeID).ToHashSet();
-            var soldItems = calc.Store.StoreData.SellOffers.Select(o => o.Stack.Item.TypeID).ToHashSet();
-            var itemsToAdd = items.Where(i => !soldItems.Contains(i)).Where(i => StrangeWorldsPlugin.Obj.Config.AllowPaidItemsInPlayerStores || !i.IsPaidItem()).ToList();
+            var soldItems = calc.Store.StoreData.SellOffers.SelectMany(o => o.OfferedItemTypeIDs()).ToHashSet();
+            var plannedAdds = new HashSet<int>();
+            var tableToItemsToAdd = new List<(LocString table, List<int> itemIds)>();
+
+            foreach (var (table, tableItems) in calc.CraftableItems)
+            {
+                var uniqueForThisTable = tableItems
+                    .Select(i => i.TypeID)
+                    .Where(i => StrangeWorldsPlugin.Obj.Config.AllowPaidItemsInPlayerStores || !i.IsPaidItem())
+                    .Where(i => !soldItems.Contains(i))
+                    .Where(plannedAdds.Add)
+                    .ToList();
+
+                if (uniqueForThisTable.Count > 0)
+                    tableToItemsToAdd.Add((table, uniqueForThisTable));
+            }
+
+            var itemsToAdd = plannedAdds.ToList();
 
             if (!itemsToAdd.Any())
             {
-                sb.AppendLine(Localizer.DoStr($"All the items you can craft is already added to the store."));
+                sb.AppendLine(Localizer.DoStr($"All the items you can craft are already added to this store."));
                 user.TempServerMessage(sb);
                 return;
             }
 
-            foreach (var (table, tableItems) in calc.CraftableItems)
+            foreach (var (table, itemIds) in tableToItemsToAdd)
             {
-                var addedForThisTable = tableItems.Select(i => i.TypeID).Where(itemsToAdd.Contains);
-                if (!addedForThisTable.Any()) { continue; }
-
-                calc.Store.CreateCategoryWithOffers(user.Player, addedForThisTable.ToList(), false);
+                calc.Store.CreateCategoryWithOffers(user.Player, itemIds, false);
                 var category = calc.Store.StoreData.SellCategories.Last();
                 category.Name = table;
             }
-            foreach (var offer in calc.Store.StoreData.SellOffers.Where(o => itemsToAdd.Contains(o.Stack.Item.TypeID)))
+            foreach (var offer in calc.Store.StoreData.SellOffers.Where(o => itemsToAdd.Any(o.MatchesTypeID)))
                 offer.Price = 999999;
 
             sb.AppendLine(Localizer.DoStr($"Added {Text.Info(Text.Num(itemsToAdd.Count))} sell orders. Open the store and remove the items you're not interested in selling at your shop."));
@@ -88,7 +100,7 @@ namespace TradeAssistant
             var allRecipes = calc.ProductToRequiredItemsLookup();
 
             // Limit the products to only the ones we're selling
-            var sellOfferTypeIds = calc.Store.StoreData.SellOffers.Select(o => o.Stack.Item.TypeID).ToList();
+            var sellOfferTypeIds = calc.Store.StoreData.SellOffers.SelectMany(o => o.OfferedItemTypeIDs()).ToHashSet();
 
             // Work through the list of craftable items and find the product we need to make them
             var todo = new Queue<int>(calc.CraftableItems.SelectMany(x => x.Value).Select(p => p.TypeID).Distinct().Where(sellOfferTypeIds.Contains));
@@ -96,22 +108,30 @@ namespace TradeAssistant
             while (todo.TryDequeue(out var productId))
             {
                 if (!done.Add(productId)) continue;
-                var itemsToQueue = allRecipes[productId].Where(allRecipes.ContainsKey).ToList();
-                var itemsToBuy = allRecipes[productId].Where(i => !itemsToQueue.Contains(i));
+                if (!allRecipes.TryGetValue(productId, out var recipeIngredients))
+                    continue;
+
+                var itemsToQueue = recipeIngredients.Where(allRecipes.ContainsKey).ToList();
+                var itemsToBuy = recipeIngredients.Where(i => !itemsToQueue.Contains(i));
                 items.AddRange(itemsToBuy);
                 itemsToQueue.ForEach(todo.Enqueue);
             }
 
-            items.RemoveRange(calc.Store.StoreData.BuyOffers.Select(o => o.Stack.Item.TypeID));
+            var existingBuyOrderTypeIds = calc.Store.StoreData.BuyOffers.SelectMany(o => o.OfferedItemTypeIDs()).ToHashSet();
+            var existingOrderTypeIds = existingBuyOrderTypeIds.Union(sellOfferTypeIds).ToHashSet();
+            var duplicateOrderCount = items.RemoveWhere(existingOrderTypeIds.Contains);
             if (items.Count == 0)
             {
-                user.TempServerMessage(Localizer.DoStr($"The buy orders for all possible ingredients to make the current sell order products are already listed in the shop."));
+                if (duplicateOrderCount > 0)
+                    user.TempServerMessage(Localizer.DoStr($"No new buy orders were added because all required ingredients already exist as store orders."));
+                else
+                    user.TempServerMessage(Localizer.DoStr($"All buy orders to make the current sell order products are already listed in this shop."));
                 return;
             }
 
 
             calc.Store.CreateCategoryWithOffers(user.Player, items.ToList(), true);
-            foreach (var offer in calc.Store.StoreData.BuyOffers.Where(o => items.Contains(o.Stack.Item.TypeID)))
+            foreach (var offer in calc.Store.StoreData.BuyOffers.Where(o => items.Any(o.MatchesTypeID)))
             {
                 offer.Limit = 1;
                 offer.Price = 0;
@@ -126,13 +146,21 @@ namespace TradeAssistant
             var calc = await TradeAssistantCalculator.TryInitialize(user);
             if (calc == null) return;
 
-            var storeSellItemIds = calc.Store.StoreData.SellOffers.Where(o => !calc.Config.FrozenSellPrices.Contains(o.Stack.Item.TypeID)).Select(o => o.Stack.Item.TypeID).Distinct().ToList();
+            var storeSellItemIds = calc.Store.StoreData.SellOffers
+                .SelectMany(o => o.OfferedItemTypeIDs())
+                .Where(typeID => !calc.Config.FrozenSellPrices.Contains(typeID))
+                .Distinct()
+                .ToList();
             if (storeSellItemIds.Count == 0)
             {
                 user.TempServerMessage(Localizer.Do($"{calc.Store.Parent.UILink()} has no sell orders."));
                 return;
             }
-            var buyProductsToUpdate = calc.Store.StoreData.BuyOffers.Select(o => o.Stack.Item.TypeID).Distinct().Where(storeSellItemIds.Contains).ToList();
+            var buyProductsToUpdate = calc.Store.StoreData.BuyOffers
+                .SelectMany(o => o.OfferedItemTypeIDs())
+                .Distinct()
+                .Where(storeSellItemIds.Contains)
+                .ToList();
 
             var byProducts = calc.Config.ByProducts.ToHashSet();
             var craftableItems = calc.CraftableItems.SelectMany(x => x.Value).Select(x => x.TypeID).Distinct().ToHashSet();
@@ -172,7 +200,9 @@ namespace TradeAssistant
             else
             {
                 output.Insert(0, Localizer.Do($"Updating the sell prices at {calc.Store.Parent.UILink()}\n"));
-                updates.ForEach(u => output.AppendLine(u));
+                updates
+                    .Where(u => !string.IsNullOrWhiteSpace(u))
+                    .ForEach(u => output.AppendLine(u));
                 if (updates.Count > 0)
                     output.AppendLineLoc($"Updated the price(s) of {Text.StyledNum(updates.Count)} order(s)");
                 user.TempServerMessage(output.ToStringLoc());
