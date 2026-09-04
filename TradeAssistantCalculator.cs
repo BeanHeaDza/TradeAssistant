@@ -1,5 +1,6 @@
 ﻿using Eco.Gameplay.Components;
 using Eco.Gameplay.Components.Store;
+using Eco.Gameplay.Bonuses;
 using Eco.Gameplay.DynamicValues;
 using Eco.Gameplay.Economy;
 using Eco.Gameplay.Items;
@@ -181,6 +182,9 @@ namespace TradeAssistant
                     // Ignore by-products if there is more than one product, and make sure the only product is the specified item
                     var products = recipe.Products;
                     var resourceEfficiencyContext = new ModuleContext(user, craftingTable.Parent.Position, craftingTable.ResourceEfficiencyModule);
+                    var resourceBonusContext = BonusContext.ForCraftingPreview(user, recipe.Family, craftingTable.Parent, BonusAction.ResourceCost);
+                    var laborBonusContext = BonusContext.ForCraftingPreview(user, recipe.Family, craftingTable.Parent, BonusAction.LaborCost);
+                    var yieldBonusContext = BonusContext.ForCraftingPreview(user, recipe.Family, craftingTable.Parent, BonusAction.Yield);
                     if (recipe.Products.Count > 1)
                     {
                         products = recipe.Products.Where(p => !Config.ByProducts.Any(byProductId => byProductId == p.Item.TypeID)).ToList();
@@ -198,7 +202,7 @@ namespace TradeAssistant
                     }
 
                     // Check the price of the by-products
-                    var byProducts = recipe.Products.Where(p => p != product).Select(p => ParseByProduct(p, resourceEfficiencyContext, craftingTable)).ToList();
+                    var byProducts = recipe.Products.Where(p => p != product).Select(p => ParseByProduct(p, recipe, resourceEfficiencyContext, craftingTable, resourceBonusContext, yieldBonusContext)).ToList();
                     var unsetByProduct = byProducts.Where(p => float.IsPositiveInfinity(p.Price)).FirstOrDefault();
                     if (unsetByProduct != null)
                     {
@@ -214,8 +218,9 @@ namespace TradeAssistant
                     }
 
                     // Labour cost
-                    var labourCost = recipe.Family.LaborInCalories.GetCurrentValue(user) * Config.CostPer1000Calories / 1000f;
-                    explanation.AppendLineLoc($"Labour{userText}: UserModifiedCalories ({Text.StyledNum(recipe.Family.LaborInCalories.GetCurrentValue(user))}) * CostPer1000Calories ({Text.StyledNum(Config.CostPer1000Calories)}) / 1000 = {Text.StyledNum(labourCost)}");
+                    var labor = BonusManager.ApplyBonuses(laborBonusContext, recipe.Family.Labor);
+                    var labourCost = labor * Config.CostPer1000Calories / 1000f;
+                    explanation.AppendLineLoc($"Labour{userText}: BonusAdjustedLabor ({Text.StyledNum(labor)}) * CostPer1000Calories ({Text.StyledNum(Config.CostPer1000Calories)}) / 1000 = {Text.StyledNum(labourCost)}");
 
                     // Ingredients cost
                     var getIngredientPrice = (Item ingredient, IngredientElement element) =>
@@ -223,18 +228,18 @@ namespace TradeAssistant
                         if (!TryGetCostPrice(ingredient, out var tempPrice, out var reason, out var innerWarnings))
                             return new IngredientPrice(float.PositiveInfinity, ingredient, reason.ToStringLoc(), innerWarnings);
 
-                        var ingredientCount = element.Quantity.GetCurrentValue(resourceEfficiencyContext, craftingTable);
+                        var ingredientCount = GetAdjustedIngredientQuantity(element, resourceEfficiencyContext, craftingTable, resourceBonusContext);
                         var count = ingredientCount;
                         var countText = TextLoc.StyledNum(count);
 
                         if (item is WorldObjectItem)
                         {
-                            count = element.Quantity.GetCurrentValueInt(resourceEfficiencyContext, craftingTable, WORLD_OBJECT_CAP_NUMBER) * 1f / WORLD_OBJECT_CAP_NUMBER;
+                            count = Mathf.CeilingToInt(ingredientCount * WORLD_OBJECT_CAP_NUMBER, IDynamicValue.ValueIntEpsilon) * 1f / WORLD_OBJECT_CAP_NUMBER;
                             countText = TextLoc.Foldout(TextLoc.StyledNum(count), Localizer.Do($"Count rounding reason"), Localizer.Do($"Crafting placable items are capped at crafting {Text.Info(WORLD_OBJECT_CAP_NUMBER)} at a time, so the count got rounded up from {Text.StyledNum(ingredientCount)} to {Text.StyledNum(count)}"));
                         }
                         else if (item.IsTool)
                         {
-                            count = element.Quantity.GetCurrentValueInt(resourceEfficiencyContext, craftingTable, TOOL_CAP_NUMBER) * 1f / TOOL_CAP_NUMBER;
+                            count = Mathf.CeilingToInt(ingredientCount * TOOL_CAP_NUMBER, IDynamicValue.ValueIntEpsilon) * 1f / TOOL_CAP_NUMBER;
                             countText = TextLoc.Foldout(TextLoc.StyledNum(count), Localizer.Do($"Count rounding reason"), Localizer.Do($"Tools are capped at crafting {Text.Info(TOOL_CAP_NUMBER)} tool(s) at a time, so the count got rounded up from {Text.StyledNum(ingredientCount)} to {Text.StyledNum(count)}"));
 
                         }
@@ -260,7 +265,7 @@ namespace TradeAssistant
                     }
                     explanation.AppendLineLoc($"Ingredients Total: {Text.StyledNum(ingredientsTotal)}");
 
-                    var productCount = product.Quantity.GetCurrentValue(resourceEfficiencyContext, craftingTable);
+                    var productCount = GetAdjustedProductQuantity(product, recipe, resourceEfficiencyContext, craftingTable, resourceBonusContext, yieldBonusContext);
 
                     var totalCost = (ingredientsTotal - byProductsPrice + labourCost) / productCount;
                     explanation.AppendLineLoc($"Total Cost: (Ingredients ({Text.StyledNum(ingredientsTotal)}) - ByProduct ({Text.StyledNum(byProductsPrice)}) + Labour Cost ({Text.StyledNum(labourCost)})) / ProductCount ({Text.StyledNum(productCount)}) = {Text.StyledNum(totalCost)}");
@@ -330,14 +335,27 @@ namespace TradeAssistant
 
         private static LocString WhyFoldout(IngredientPrice price) => TextLoc.FoldoutLoc($"Why?", $"Why {price.Item.UILink()}", price.Reason);
 
-        private ProductPrice ParseByProduct(CraftingElement product, ModuleContext resourceEfficiency, CraftingComponent craftingTable)
+        private static float GetAdjustedIngredientQuantity(IngredientElement ingredient, ModuleContext resourceEfficiency, CraftingComponent craftingTable, BonusContext resourceBonusContext)
+        {
+            var baseQuantity = ingredient.Quantity.GetCurrentValue(resourceEfficiency, craftingTable);
+            return ingredient.Quantity is ConstantValue ? baseQuantity : BonusManager.ApplyBonuses(resourceBonusContext, baseQuantity);
+        }
+
+        private static float GetAdjustedProductQuantity(CraftingElement product, Recipe recipe, ModuleContext resourceEfficiency, CraftingComponent craftingTable, BonusContext resourceBonusContext, BonusContext yieldBonusContext)
+        {
+            var baseQuantity = product.Quantity.GetCurrentValue(resourceEfficiency, craftingTable);
+            if (!recipe.IsIngredientRefund(product)) return BonusManager.ApplyBonuses(yieldBonusContext, baseQuantity);
+            return recipe.IsDiscountedIngredientRefund(product) ? baseQuantity * BonusManager.ApplyBonuses(resourceBonusContext, 1f) : baseQuantity;
+        }
+
+        private ProductPrice ParseByProduct(CraftingElement product, Recipe recipe, ModuleContext resourceEfficiency, CraftingComponent craftingTable, BonusContext resourceBonusContext, BonusContext yieldBonusContext)
         {
             if (!StoreSellPrices.TryGetValue(product.Item.TypeID, out var storePrice))
                 return new ProductPrice(product, float.PositiveInfinity, Localizer.Do($"No sell price set for the by-product {product.Item.UILink()}."));
             // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
             // CostPrice = SellPrice / (1 + Profit) * (1 - TaxRate)
             var costPrice = storePrice / (1 + Config.Profit / 100f) * (1 - Store.GetTax());
-            var quantity = product.Quantity.GetCurrentValue(resourceEfficiency, craftingTable);
+            var quantity = GetAdjustedProductQuantity(product, recipe, resourceEfficiency, craftingTable, resourceBonusContext, yieldBonusContext);
             var totalCostPrice = costPrice * quantity;
 
             var costReasonContent = new LocStringBuilder();
