@@ -46,7 +46,7 @@ namespace TradeAssistant
             Store = store;
             CraftingTables = craftingTables;
             CraftableItems = craftableItems;
-            Users = config.PartnerPlayers.Append(user.Id).ToHashSet().Select(id => UserManager.FindUserByID(id)).ToList();
+            Users = config.PartnerPlayers.Append(user.Id).ToHashSet().Select(id => UserManager.FindUserByID(id)).Where(foundUser => foundUser != null).ToList();
             Config = config;
 
             StoreBuyPrices = store.StoreData.BuyOffers
@@ -249,7 +249,7 @@ namespace TradeAssistant
 
                     var costs = recipe.Ingredients.Select(i => i.IsSpecificItem
                         ? getIngredientPrice(i.Item, i)
-                        : i.Tag.TaggedItems().Select(ti => getIngredientPrice(ti, i)).OrderBy(x => x.Price).First());
+                        : i.Tag.TaggedItems().Select(ti => getIngredientPrice(ti, i)).OrderBy(x => x.Price).First()).ToList();
                     if (costs.Any(c => float.IsPositiveInfinity(c.Price)))
                     {
                         failedRecipes.AddLoc($"For crafting {recipe.UILink()} we could not determine the price of {string.Join(", ", costs.Where(c => float.IsPositiveInfinity(c.Price)).Select(c => Localizer.Do($"{c.Item.UILink()} ({WhyFoldout(c)})")))}. Please run /ta setupbuy to add missing ingredients");
@@ -413,7 +413,6 @@ namespace TradeAssistant
             // Get all the crafting tables in the deed
             craftingTables = WorldObjectUtil.AllObjsWithComponent<CraftingComponent>()
                 .Where(workbench => workbench.IsRPCAuthorized(user.Player, AccessType.FullAccess, Array.Empty<object>()) && deed.Plots.Any(p => p.PlotPos == workbench.Parent.PlotPos()))
-                .DistinctBy(craftingTable => $"{craftingTable.Parent.Name}:{(craftingTable.ResourceEfficiencyModule == null ? "null" : craftingTable.ResourceEfficiencyModule.Name)}")
                 .ToList();
             if (!craftingTables.Any())
             {
