@@ -92,6 +92,23 @@ namespace TradeAssistant
             return null;
         }
 
+        /// <summary>
+        /// Returns the profit percentage override configured for the first sell category that
+        /// contains an offer matching <paramref name="itemID"/>, or <c>null</c> when no override
+        /// is configured for any of the item's sell categories.
+        /// </summary>
+        public float? CategoryProfitFor(int itemID)
+        {
+            foreach (var category in Store.StoreData.SellCategories)
+            {
+                if (category.IsBuy || category.Name == null) continue;
+                if (!Config.CategoryProfits.TryGetValue(category.Name, out var profit)) continue;
+                if (category.Offers.Any(o => o.MatchesTypeID(itemID)))
+                    return profit;
+            }
+            return null;
+        }
+
         public Dictionary<int, List<int>> ProductToRequiredItemsLookup()
         {
             return CraftingTables

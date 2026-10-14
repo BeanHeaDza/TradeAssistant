@@ -33,6 +33,7 @@ namespace TradeAssistant
             sb.AppendLine(Localizer.DoStr("- Now go through your buy orders and set the buy prices as well as the buy limits for each item.")); // TODO: Mention how you can remove Tagged items
             sb.Append(Localizer.DoStr("- Run ")).Append(Text.Name("/ta config")).AppendLine(Localizer.DoStr(" to set your desired profit percentage and cost per calory."));
             sb.Append(Localizer.DoStr("- Once you're done with that the last step is to run ")).Append(Text.Name("/ta update")).AppendLine(Localizer.DoStr(", this will update the prices of all your sell orders based on your configured profit percentage and labor cost."));
+            sb.AppendLine(Localizer.DoStr("- Optional: use /ta categoryprofit <categoryName> <percent> to override the profit percentage for every item in a sell category (e.g. /ta categoryprofit Food 10). Use /ta categoryprofit list to review overrides and /ta categoryprofit remove <categoryName> to clear one."));
 
             user.TempServerMessage(sb);
         }
@@ -178,7 +179,8 @@ namespace TradeAssistant
                     // SellPrice - SellPrice * TaxRate = CostPrice * (1 + Profit)
                     // SellPrice * (1 - TaxRate) = CostPrice * (1 + Profit)
                     // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
-                    var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) / (1 - calc.Store.GetTax()));
+                    var profitPercent = calc.CategoryProfitFor(itemID) ?? calc.Config.Profit;
+                    var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + profitPercent / 100f) / (1 - calc.Store.GetTax()));
                     updates.AddRange(calc.SetSellPrice(itemID, newPrice));
                     if (itemWarnings != null)
                         warnings.AddRange(itemWarnings);
@@ -235,6 +237,68 @@ namespace TradeAssistant
                 user.TempServerMessage(reason.ToStringLoc());
         }
 
+
+        [ChatSubCommand(nameof(TradeAssistant), "Sets a profit percentage override for every item in a sell category. Usage: /ta categoryprofit <categoryName> <percent>", ChatAuthorizationLevel.User)]
+        public static async Task CategoryProfit(User user, string categoryName, string percent)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            if (!float.TryParse(percent, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) || value <= -100f)
+            {
+                user.TempServerMessage(Localizer.DoStr("Please provide a valid profit percentage greater than -100."));
+                return;
+            }
+
+            var category = calc.Store.StoreData.SellCategories
+                .FirstOrDefault(c => !c.IsBuy && c.Name != null && string.Equals(c.Name.Trim(), categoryName, StringComparison.OrdinalIgnoreCase));
+            if (category == null)
+            {
+                user.TempServerMessage(Localizer.Do($"There is no sell category named \"{categoryName}\" in this store."));
+                return;
+            }
+
+            calc.Config.CategoryProfits[category.Name!] = value;
+            StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+            user.TempServerMessage(Localizer.Do($"Profit override of {Text.StyledNum(value)}% set for the sell category \"{category.Name}\". Run /ta update to apply it."));
+        }
+
+        [ChatSubCommand(nameof(TradeAssistant), "Removes the profit percentage override for a sell category. Usage: /ta categoryprofit remove <categoryName>", ChatAuthorizationLevel.User)]
+        public static async Task CategoryProfitRemove(User user, string categoryName)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            var category = calc.Store.StoreData.SellCategories
+                .FirstOrDefault(c => !c.IsBuy && c.Name != null && string.Equals(c.Name.Trim(), categoryName, StringComparison.OrdinalIgnoreCase));
+            if (category == null || !calc.Config.CategoryProfits.Remove(category.Name!))
+            {
+                user.TempServerMessage(Localizer.Do($"There is no profit override configured for the sell category \"{categoryName}\"."));
+                return;
+            }
+
+            StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+            user.TempServerMessage(Localizer.Do($"Removed the profit override for the sell category \"{category.Name}\"."));
+        }
+
+        [ChatSubCommand(nameof(TradeAssistant), "Lists all profit percentage overrides configured for sell categories", ChatAuthorizationLevel.User)]
+        public static async Task CategoryProfitList(User user)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            if (calc.Config.CategoryProfits.Count == 0)
+            {
+                user.TempServerMessage(Localizer.DoStr("There are no profit overrides configured for sell categories."));
+                return;
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLineLoc($"Profit overrides for sell categories:");
+            foreach (var pair in calc.Config.CategoryProfits)
+                sb.AppendLineLoc($"- {pair.Key}: {Text.StyledNum(pair.Value)}%");
+            user.TempServerMessage(sb.ToStringLoc());
+        }
 
         [ChatSubCommand(nameof(TradeAssistant), "Opens up a window to change your configurations", ChatAuthorizationLevel.User)]
         public static void Config(User user)
