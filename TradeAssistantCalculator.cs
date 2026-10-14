@@ -92,6 +92,15 @@ namespace TradeAssistant
             return null;
         }
 
+        /// <summary>
+        /// Returns the profit percentage override configured for a specific item,
+        /// or <c>null</c> when no per-item override is configured.
+        /// </summary>
+        public float? ItemProfitFor(int itemID)
+        {
+            return Config.ItemProfits.TryGetValue(itemID, out var profit) ? profit : null;
+        }
+
         public Dictionary<int, List<int>> ProductToRequiredItemsLookup()
         {
             return CraftingTables
