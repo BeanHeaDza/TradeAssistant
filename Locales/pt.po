@@ -1,0 +1,35 @@
+# Português (Portuguese) translations for Trade Assistant.
+# Translations are loaded by Eco from the mod's Locales folder at runtime.
+
+msgid "- Next up run the "
+msgstr "- Em seguida, execute: "
+
+msgid "- Now go through your buy orders and set the buy prices as well as the buy limits for each item."
+msgstr "- Agora revise suas ordens de compra e defina os preços de compra, bem como os limites de compra de cada item."
+
+msgid "- Once you're done with that the last step is to run "
+msgstr "- Quando terminar, o último passo é executar: "
+
+msgid "- Run "
+msgstr "- Execute: "
+
+msgid "- The first step is to run "
+msgstr "- O primeiro passo é executar: "
+
+msgid "Mods"
+msgstr "Mods"
+
+msgid "This mod will help you setup your store by adding buy and sell orders onto it and updating the sell order prices based on your profit configurations you've setup."
+msgstr "Este mod ajuda você a configurar sua loja adicionando ordens de compra e venda e atualizando os preços de venda com base nas suas configurações de lucro."
+
+msgid "Trade Assistant Configuration"
+msgstr "Configuração do Trade Assistant"
+
+msgid "Updating buy price"
+msgstr "Atualizando preço de compra"
+
+msgid "Updating sell price"
+msgstr "Atualizando preço de venda"
+
+msgid "Welcome to the Trade Assistant mod!"
+msgstr "Bem-vindo ao mod Trade Assistant!"

@@ -1,0 +1,36 @@
+# English (base) translations for Trade Assistant.
+# msgid is the source string; empty msgstr means "use the source string".
+# Translations are loaded by Eco from the mod's Locales folder at runtime.
+
+msgid "- Next up run the "
+msgstr ""
+
+msgid "- Now go through your buy orders and set the buy prices as well as the buy limits for each item."
+msgstr ""
+
+msgid "- Once you're done with that the last step is to run "
+msgstr ""
+
+msgid "- Run "
+msgstr ""
+
+msgid "- The first step is to run "
+msgstr ""
+
+msgid "Mods"
+msgstr ""
+
+msgid "This mod will help you setup your store by adding buy and sell orders onto it and updating the sell order prices based on your profit configurations you've setup."
+msgstr ""
+
+msgid "Trade Assistant Configuration"
+msgstr ""
+
+msgid "Updating buy price"
+msgstr ""
+
+msgid "Updating sell price"
+msgstr ""
+
+msgid "Welcome to the Trade Assistant mod!"
+msgstr ""

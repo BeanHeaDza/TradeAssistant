@@ -1,0 +1,35 @@
+# 简体中文 (Simplified Chinese) translations for Trade Assistant.
+# Translations are loaded by Eco from the mod's Locales folder at runtime.
+
+msgid "- Next up run the "
+msgstr "- 接下来请运行 "
+
+msgid "- Now go through your buy orders and set the buy prices as well as the buy limits for each item."
+msgstr "- 现在检查你的收购订单，为每个物品设置收购价格和收购上限。"
+
+msgid "- Once you're done with that the last step is to run "
+msgstr "- 完成后，最后一步是运行 "
+
+msgid "- Run "
+msgstr "- 运行 "
+
+msgid "- The first step is to run "
+msgstr "- 第一步是运行 "
+
+msgid "Mods"
+msgstr "Mods"
+
+msgid "This mod will help you setup your store by adding buy and sell orders onto it and updating the sell order prices based on your profit configurations you've setup."
+msgstr "这个模组可以帮助你设置商店，自动添加收购和出售订单，并根据你设置的利润配置更新出售价格。"
+
+msgid "Trade Assistant Configuration"
+msgstr "交易助手配置"
+
+msgid "Updating buy price"
+msgstr "正在更新收购价格"
+
+msgid "Updating sell price"
+msgstr "正在更新出售价格"
+
+msgid "Welcome to the Trade Assistant mod!"
+msgstr "欢迎使用交易助手模组！"
