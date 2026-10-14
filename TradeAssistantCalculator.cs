@@ -1,5 +1,6 @@
 ﻿using Eco.Gameplay.Components;
 using Eco.Gameplay.Components.Store;
+using Eco.Gameplay.Components.Storage;
 using Eco.Gameplay.Bonuses;
 using Eco.Gameplay.DynamicValues;
 using Eco.Gameplay.Economy;
@@ -442,6 +443,24 @@ namespace TradeAssistant
         }
 
         public List<LocString> SetSellPrice(int item, float newPrice) => SetSellPrice(Item.Get(item), newPrice);
+
+        public float StockDiscountPercentFor(int itemID)
+        {
+            if (!Config.StockDiscountEnabled) return 0f;
+            if (Config.StockDiscountFullStock <= Config.StockDiscountStartStock) return 0f;
+
+            var item = Item.Get(itemID);
+            if (item == null) return 0f;
+
+            if (!Store.Parent.TryGetComponent<StorageComponent>(out var storage) || storage.Inventory == null) return 0f;
+            var stock = storage.Inventory.TotalNumberOfItems(item.Type);
+            if (stock <= Config.StockDiscountStartStock) return 0f;
+            if (stock >= Config.StockDiscountFullStock) return Config.StockDiscountMaxPercent;
+
+            var progress = (stock - Config.StockDiscountStartStock) / (float)(Config.StockDiscountFullStock - Config.StockDiscountStartStock);
+            return Config.StockDiscountMaxPercent * progress;
+        }
+
         public List<LocString> SetSellPrice(Item item, float newPrice)
         {
             newPrice = Mathf.RoundToAcceptedDigits(newPrice);

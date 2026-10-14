@@ -30,6 +30,10 @@ namespace TradeAssistant
         [Serialized] public ThreadSafeList<int> ByProducts { get; set; } = new();
         [Serialized] public ThreadSafeList<int> FrozenSellPrices { get; set; } = new();
         [Serialized] public ThreadSafeList<int> PartnerPlayers { get; set; } = new();
+        [Serialized] public bool StockDiscountEnabled { get; set; } = false;
+        [Serialized] public float StockDiscountMaxPercent { get; set; } = 20f;
+        [Serialized] public int StockDiscountStartStock { get; set; } = 50;
+        [Serialized] public int StockDiscountFullStock { get; set; } = 200;
 
         public UserConfigUI ToUI()
         {

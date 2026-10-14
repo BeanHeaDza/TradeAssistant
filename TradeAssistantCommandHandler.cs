@@ -178,7 +178,8 @@ namespace TradeAssistant
                     // SellPrice - SellPrice * TaxRate = CostPrice * (1 + Profit)
                     // SellPrice * (1 - TaxRate) = CostPrice * (1 + Profit)
                     // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
-                    var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) / (1 - calc.Store.GetTax()));
+                    var stockDiscount = calc.StockDiscountPercentFor(itemID);
+                    var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) * (1 - stockDiscount / 100f) / (1 - calc.Store.GetTax()));
                     updates.AddRange(calc.SetSellPrice(itemID, newPrice));
                     if (itemWarnings != null)
                         warnings.AddRange(itemWarnings);
@@ -233,6 +234,81 @@ namespace TradeAssistant
             }
             else
                 user.TempServerMessage(reason.ToStringLoc());
+        }
+
+
+        [ChatSubCommand(nameof(TradeAssistant), "Enables or disables stock-based discount scaling. Usage: /ta stockdiscount <on|off>", ChatAuthorizationLevel.User)]
+        public static async Task StockDiscount(User user, string state)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            if (state.Equals("on", StringComparison.OrdinalIgnoreCase))
+            {
+                calc.Config.StockDiscountEnabled = true;
+                StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+                user.TempServerMessage(Localizer.DoStr("Stock-based discount scaling is now ON. Run /ta update to apply it."));
+            }
+            else if (state.Equals("off", StringComparison.OrdinalIgnoreCase))
+            {
+                calc.Config.StockDiscountEnabled = false;
+                StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+                user.TempServerMessage(Localizer.DoStr("Stock-based discount scaling is now OFF."));
+            }
+            else
+                user.TempServerMessage(Localizer.DoStr("Usage: /ta stockdiscount <on|off>"));
+        }
+
+        [ChatSubCommand(nameof(TradeAssistant), "Configures stock-based discount scaling. Usage: /ta stockdiscountconfig <max|start|full> <value>", ChatAuthorizationLevel.User)]
+        public static async Task StockDiscountConfig(User user, string key, string value)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            if (key.Equals("max", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var max) || max < 0f || max > 100f)
+                {
+                    user.TempServerMessage(Localizer.DoStr("Please provide a max discount percentage between 0 and 100."));
+                    return;
+                }
+                calc.Config.StockDiscountMaxPercent = max;
+                StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+                user.TempServerMessage(Localizer.Do($"Max stock discount set to {Text.StyledNum(max)}%."));
+            }
+            else if (key.Equals("start", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!int.TryParse(value, out var start) || start < 0)
+                {
+                    user.TempServerMessage(Localizer.DoStr("Please provide a non-negative start stock amount."));
+                    return;
+                }
+                calc.Config.StockDiscountStartStock = start;
+                StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+                user.TempServerMessage(Localizer.Do($"Stock discount starts at {Text.StyledNum(start)} items in storage."));
+            }
+            else if (key.Equals("full", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!int.TryParse(value, out var full) || full <= calc.Config.StockDiscountStartStock)
+                {
+                    user.TempServerMessage(Localizer.DoStr("The full stock amount must be greater than the start stock amount."));
+                    return;
+                }
+                calc.Config.StockDiscountFullStock = full;
+                StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+                user.TempServerMessage(Localizer.Do($"Stock discount reaches its maximum at {Text.StyledNum(full)} items in storage."));
+            }
+            else
+                user.TempServerMessage(Localizer.DoStr("Usage: /ta stockdiscountconfig <max|start|full> <value>"));
+        }
+
+        [ChatSubCommand(nameof(TradeAssistant), "Shows the current stock-based discount configuration", ChatAuthorizationLevel.User)]
+        public static async Task StockDiscountShow(User user)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            user.TempServerMessage(Localizer.Do($"Stock-based discount scaling: {(calc.Config.StockDiscountEnabled ? "ON" : "OFF")}. Max discount {Text.StyledNum(calc.Config.StockDiscountMaxPercent)}%, starting at {Text.StyledNum(calc.Config.StockDiscountStartStock)} items and reaching maximum at {Text.StyledNum(calc.Config.StockDiscountFullStock)} items in storage."));
         }
 
 
