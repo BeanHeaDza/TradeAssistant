@@ -441,6 +441,33 @@ namespace TradeAssistant
             return true;
         }
 
+        public string? FindSellCategoryName(string nameOrPart)
+        {
+            foreach (var category in Store.StoreData.SellCategories)
+            {
+                if (category.IsBuy) continue;
+                if (category.Name.Equals(nameOrPart, StringComparison.OrdinalIgnoreCase))
+                    return category.Name;
+            }
+            foreach (var category in Store.StoreData.SellCategories)
+            {
+                if (category.IsBuy) continue;
+                if (category.Name.IndexOf(nameOrPart, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return category.Name;
+            }
+            return null;
+        }
+
+        public float DiscountPercentFor(int itemID)
+        {
+            if (Config.CategoryDiscounts.Count == 0) return 0f;
+
+            var offer = Store.StoreData.SellOffers.FirstOrDefault(o => o.MatchesTypeID(itemID));
+            if (offer == null || offer.Category == null) return 0f;
+
+            return Config.CategoryDiscounts.TryGetValue(offer.Category.Name, out var discount) ? discount : 0f;
+        }
+
         public List<LocString> SetSellPrice(int item, float newPrice) => SetSellPrice(Item.Get(item), newPrice);
         public List<LocString> SetSellPrice(Item item, float newPrice)
         {

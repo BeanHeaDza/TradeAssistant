@@ -33,6 +33,7 @@ namespace TradeAssistant
             sb.AppendLine(Localizer.DoStr("- Now go through your buy orders and set the buy prices as well as the buy limits for each item.")); // TODO: Mention how you can remove Tagged items
             sb.Append(Localizer.DoStr("- Run ")).Append(Text.Name("/ta config")).AppendLine(Localizer.DoStr(" to set your desired profit percentage and cost per calory."));
             sb.Append(Localizer.DoStr("- Once you're done with that the last step is to run ")).Append(Text.Name("/ta update")).AppendLine(Localizer.DoStr(", this will update the prices of all your sell orders based on your configured profit percentage and labor cost."));
+            sb.AppendLine(Localizer.DoStr("- Optional: use /ta discount <categoryName> <percent> to apply a discount to a whole sell category (e.g. /ta discount Tools 10). Use /ta discount list to review and /ta discount remove <categoryName> to clear one."));
 
             user.TempServerMessage(sb);
         }
@@ -178,7 +179,8 @@ namespace TradeAssistant
                     // SellPrice - SellPrice * TaxRate = CostPrice * (1 + Profit)
                     // SellPrice * (1 - TaxRate) = CostPrice * (1 + Profit)
                     // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
-                    var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) / (1 - calc.Store.GetTax()));
+                    var discount = calc.DiscountPercentFor(itemID);
+                    var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) * (1 - discount / 100f) / (1 - calc.Store.GetTax()));
                     updates.AddRange(calc.SetSellPrice(itemID, newPrice));
                     if (itemWarnings != null)
                         warnings.AddRange(itemWarnings);
@@ -233,6 +235,67 @@ namespace TradeAssistant
             }
             else
                 user.TempServerMessage(reason.ToStringLoc());
+        }
+
+
+        [ChatSubCommand(nameof(TradeAssistant), "Sets a discount percentage for a sell category. Usage: /ta discount <categoryName> <percent>", ChatAuthorizationLevel.User)]
+        public static async Task Discount(User user, string categoryName, string percent)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            if (!float.TryParse(percent, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) || value < 0f || value > 100f)
+            {
+                user.TempServerMessage(Localizer.DoStr("Please provide a discount percentage between 0 and 100."));
+                return;
+            }
+
+            var name = calc.FindSellCategoryName(categoryName);
+            if (name == null)
+            {
+                user.TempServerMessage(Localizer.DoStr("Could not find a sell category with that name."));
+                return;
+            }
+
+            calc.Config.CategoryDiscounts[name] = value;
+            StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+            user.TempServerMessage(Localizer.Do($"Discount of {Text.StyledNum(value)}% set for the '{name}' category. Run /ta update to apply it."));
+        }
+
+        [ChatSubCommand(nameof(TradeAssistant), "Removes the discount percentage for a sell category. Usage: /ta discount remove <categoryName>", ChatAuthorizationLevel.User)]
+        public static async Task DiscountRemove(User user, string categoryName)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            var name = calc.FindSellCategoryName(categoryName);
+            if (name == null || !calc.Config.CategoryDiscounts.Remove(name))
+            {
+                user.TempServerMessage(Localizer.DoStr("There is no discount configured for a category with that name."));
+                return;
+            }
+
+            StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+            user.TempServerMessage(Localizer.Do($"Removed the discount for the '{name}' category."));
+        }
+
+        [ChatSubCommand(nameof(TradeAssistant), "Lists all configured per-category discounts", ChatAuthorizationLevel.User)]
+        public static async Task DiscountList(User user)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            if (calc.Config.CategoryDiscounts.Count == 0)
+            {
+                user.TempServerMessage(Localizer.DoStr("There are no per-category discounts configured."));
+                return;
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLineLoc($"Configured category discounts:");
+            foreach (var pair in calc.Config.CategoryDiscounts.OrderBy(p => p.Key))
+                sb.AppendLineLoc($"- {pair.Key}: {Text.StyledNum(pair.Value)}%");
+            user.TempServerMessage(sb.ToStringLoc());
         }
 
 

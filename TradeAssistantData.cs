@@ -30,6 +30,7 @@ namespace TradeAssistant
         [Serialized] public ThreadSafeList<int> ByProducts { get; set; } = new();
         [Serialized] public ThreadSafeList<int> FrozenSellPrices { get; set; } = new();
         [Serialized] public ThreadSafeList<int> PartnerPlayers { get; set; } = new();
+        [Serialized] public ThreadSafeDictionary<string, float> CategoryDiscounts { get; set; } = new();
 
         public UserConfigUI ToUI()
         {
