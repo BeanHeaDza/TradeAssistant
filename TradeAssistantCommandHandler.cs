@@ -236,6 +236,57 @@ namespace TradeAssistant
         }
 
 
+        [ChatSubCommand(nameof(TradeAssistant), "Automatically creates sell categories based on the item categories of your sell offers. Usage: /ta autocategories", ChatAuthorizationLevel.User)]
+        public static async Task AutoCategories(User user)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            var existingNames = calc.Store.StoreData.SellCategories.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var grouped = calc.Store.StoreData.SellOffers
+                .SelectMany(o => o.OfferedItemTypeIDs())
+                .Select(Item.Get)
+                .Where(i => i != null)
+                .GroupBy(i => string.IsNullOrEmpty(i.Category) ? "Other" : i.Category)
+                .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (grouped.Count == 0)
+            {
+                user.TempServerMessage(Localizer.DoStr("There are no sell offers to categorize."));
+                return;
+            }
+
+            var sb = new StringBuilder();
+            var created = 0;
+            var skipped = 0;
+            foreach (var group in grouped)
+            {
+                if (existingNames.Contains(group.Key))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                try
+                {
+                    calc.Store.CreateCategoryWithMixedOffers(user.Player, group.Select(i => i.TypeID).Distinct().ToList(), new List<string> { group.Key }, false);
+                    created++;
+                    sb.AppendLineLoc($"- Created the '{group.Key}' category ({group.Count()} items).");
+                }
+                catch (Exception e)
+                {
+                    sb.AppendLineLoc($"- Failed to create the '{group.Key}' category: {e.Message}");
+                }
+            }
+
+            if (created == 0 && skipped > 0)
+                user.TempServerMessage(Localizer.Do($"No new categories were created ({skipped} already exist)."));
+            else
+                user.TempServerMessage(Localizer.Do($"Auto-created {created} sell categor{(created == 1 ? "y" : "ies")} ({skipped} already existed).{Environment.NewLine}{sb.ToStringLoc()}"));
+        }
+
+
         [ChatSubCommand(nameof(TradeAssistant), "Opens up a window to change your configurations", ChatAuthorizationLevel.User)]
         public static void Config(User user)
         {
