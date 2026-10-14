@@ -236,6 +236,69 @@ namespace TradeAssistant
         }
 
 
+        [ChatSubCommand(nameof(TradeAssistant), "Shows a profit overview report of the store. Usage: /ta report", ChatAuthorizationLevel.User)]
+        public static async Task Report(User user)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            var sellOffers = calc.Store.StoreData.SellOffers.ToList();
+            if (sellOffers.Count == 0)
+            {
+                user.TempServerMessage(Localizer.DoStr("There are no sell offers to report on."));
+                return;
+            }
+
+            var rows = new List<(string Item, string Category, float Sell, float Cost, float Profit, float Margin)>();
+            var skipped = 0;
+            foreach (var offer in sellOffers)
+            {
+                var item = offer.Stack?.Item;
+                if (item == null) continue;
+                if (!calc.TryGetCostPrice(item, out var cost, out var _, out var _))
+                {
+                    skipped++;
+                    continue;
+                }
+                var sell = offer.Price;
+                var profit = sell - cost;
+                var margin = cost > 0f ? profit / cost * 100f : 0f;
+                rows.Add((item.UILink().ToString(), offer.Category?.Name ?? Localizer.DoStr("Uncategorized").ToString(), sell, cost, profit, margin));
+            }
+
+            if (rows.Count == 0)
+            {
+                user.TempServerMessage(Localizer.DoStr("No sell offers could be priced. Run /ta setupbuy first."));
+                return;
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLineLoc($"Profit overview for {calc.Store.Parent.UILink()}");
+            sb.AppendLineLoc($"Profit target: {Text.StyledNum(calc.Config.Profit)}%");
+
+            foreach (var group in rows.GroupBy(r => r.Category).OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                var profit = group.Sum(r => r.Profit);
+                var revenue = group.Sum(r => r.Sell);
+                var cost = group.Sum(r => r.Cost);
+                var margin = cost > 0f ? profit / cost * 100f : 0f;
+                sb.AppendLineLoc($"- {group.Key}: {group.Count()} item(s), profit {Text.StyledNum(profit)} ({Text.StyledNum(margin)}% margin)");
+                foreach (var r in group.OrderByDescending(r => r.Margin))
+                    sb.AppendLineLoc($"    {r.Item}: sell {Text.StyledNum(r.Sell)}, cost {Text.StyledNum(r.Cost)}, profit {Text.StyledNum(r.Profit)} ({Text.StyledNum(r.Margin)}%)");
+            }
+
+            var totalProfit = rows.Sum(r => r.Profit);
+            var totalRevenue = rows.Sum(r => r.Sell);
+            var totalCost = rows.Sum(r => r.Cost);
+            var totalMargin = totalCost > 0f ? totalProfit / totalCost * 100f : 0f;
+            sb.AppendLineLoc($"Total: {rows.Count} item(s), revenue {Text.StyledNum(totalRevenue)}, cost {Text.StyledNum(totalCost)}, profit {Text.StyledNum(totalProfit)} ({Text.StyledNum(totalMargin)}% margin)");
+            if (skipped > 0)
+                sb.AppendLineLoc($"{Text.StyledNum(skipped)} offer(s) could not be priced and were skipped.");
+
+            user.TempServerMessage(sb.ToStringLoc());
+        }
+
+
         [ChatSubCommand(nameof(TradeAssistant), "Opens up a window to change your configurations", ChatAuthorizationLevel.User)]
         public static void Config(User user)
         {
