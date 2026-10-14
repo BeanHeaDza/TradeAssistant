@@ -33,6 +33,7 @@ namespace TradeAssistant
             sb.AppendLine(Localizer.DoStr("- Now go through your buy orders and set the buy prices as well as the buy limits for each item.")); // TODO: Mention how you can remove Tagged items
             sb.Append(Localizer.DoStr("- Run ")).Append(Text.Name("/ta config")).AppendLine(Localizer.DoStr(" to set your desired profit percentage and cost per calory."));
             sb.Append(Localizer.DoStr("- Once you're done with that the last step is to run ")).Append(Text.Name("/ta update")).AppendLine(Localizer.DoStr(", this will update the prices of all your sell orders based on your configured profit percentage and labor cost."));
+            sb.AppendLine(Localizer.DoStr("- Optional: run /ta explainbuy <itemName> to see exactly how the buy price of an item is calculated, including the cost price breakdown."));
 
             user.TempServerMessage(sb);
         }
@@ -229,6 +230,32 @@ namespace TradeAssistant
                 msg.AppendLineLoc($"SellPrice = {costPriceLink} * (1 + Profit) / (1 - TaxRate)");
                 msg.AppendLineLoc($"          = {Text.StyledNum(price)} * (1 + {Text.StyledNum(calc.Config.Profit / 100f)}) / (1 - {Text.StyledNum(calc.Store.GetTax())})");
                 msg.AppendLineLoc($"          = {Text.StyledNum(newPrice)}");
+                whoToSendTo.TempServerMessage(msg.ToStringLoc());
+            }
+            else
+                user.TempServerMessage(reason.ToStringLoc());
+        }
+
+
+        [ChatSubCommand(nameof(TradeAssistant), "Explains how the buy price is calculated for a product", ChatAuthorizationLevel.User)]
+        public static async Task ExplainBuy(User user, string itemName, User? whoToSendTo = null)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            var item = CommandsUtil.ClosestMatchingEntity(user, itemName, Item.AllItemsExceptHidden, x => x.GetType().Name, x => x.DisplayName);
+            if (item == null) return;
+            if (calc.TryGetCostPrice(item, out var price, out var reason, out var _))
+            {
+                var msg = new StringBuilder();
+                if (whoToSendTo != null)
+                    msg.AppendLineLoc($"{user.UILink()} shared this buy price explanation with you:");
+                else
+                    whoToSendTo = user;
+                var costPriceLink = TextLoc.FoldoutLoc($"CostPrice", $"Cost price of {item.UILink()}", reason.ToStringLoc());
+                msg.AppendLineLoc($"Buy price for {item.UILink()}");
+                msg.AppendLineLoc($"BuyPrice = {costPriceLink}");
+                msg.AppendLineLoc($"         = {Text.StyledNum(price)}");
                 whoToSendTo.TempServerMessage(msg.ToStringLoc());
             }
             else
