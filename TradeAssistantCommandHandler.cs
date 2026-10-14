@@ -236,6 +236,52 @@ namespace TradeAssistant
         }
 
 
+        [ChatSubCommand(nameof(TradeAssistant), "Suggests and sets buy limits based on crafting demand. Usage: /ta autobuylimits [multiplier]", ChatAuthorizationLevel.User)]
+        public static async Task AutoBuyLimits(User user) => await AutoBuyLimits(user, "1");
+
+        [ChatSubCommand(nameof(TradeAssistant), "Suggests and sets buy limits based on crafting demand. Usage: /ta autobuylimits [multiplier]", ChatAuthorizationLevel.User)]
+        public static async Task AutoBuyLimits(User user, string multiplierText)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            if (!float.TryParse(multiplierText, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var multiplier) || multiplier <= 0f)
+            {
+                user.TempServerMessage(Localizer.DoStr("Please provide a positive multiplier (e.g. /ta autobuylimits 2)."));
+                return;
+            }
+
+            var buyOffers = calc.Store.StoreData.BuyOffers.ToList();
+            if (buyOffers.Count == 0)
+            {
+                user.TempServerMessage(Localizer.DoStr("There are no buy offers to update."));
+                return;
+            }
+
+            var demand = calc.CraftingDemandPerItem();
+            var sb = new StringBuilder();
+            var updated = 0;
+            var noDemand = 0;
+            foreach (var offer in buyOffers)
+            {
+                var demandSum = offer.OfferedItemTypeIDs().Sum(id => demand.GetValueOrDefault(id, 0f));
+                if (demandSum <= 0f)
+                {
+                    noDemand++;
+                    sb.AppendLineLoc($"- {offer.Stack?.Item?.UILink() ?? Localizer.DoStr("Offer")}: no crafting demand found, limit left unchanged.");
+                    continue;
+                }
+
+                var suggested = (int)Math.Ceiling(demandSum * multiplier);
+                offer.Limit = suggested;
+                updated++;
+                sb.AppendLineLoc($"- {offer.Stack?.Item?.UILink() ?? Localizer.DoStr("Offer")}: buy limit set to {Text.StyledNum(suggested)}.");
+            }
+
+            user.TempServerMessage(Localizer.Do($"Updated buy limits for {updated} of {buyOffers.Count} buy offers ({noDemand} had no crafting demand, multiplier {Text.StyledNum(multiplier)}).{Environment.NewLine}{sb.ToStringLoc()}"));
+        }
+
+
         [ChatSubCommand(nameof(TradeAssistant), "Opens up a window to change your configurations", ChatAuthorizationLevel.User)]
         public static void Config(User user)
         {

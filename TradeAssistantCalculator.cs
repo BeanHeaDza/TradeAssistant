@@ -92,6 +92,35 @@ namespace TradeAssistant
             return null;
         }
 
+        public Dictionary<int, float> CraftingDemandPerItem()
+        {
+            var demand = new Dictionary<int, float>();
+            var ingredients = CraftingTables
+                .SelectMany(w => w.Recipes.Where(recipe => Users.Any(user => recipe.RequiredSkills.All(s => s.IsMet(user)))))
+                .SelectMany(r => r.Recipes.Skip(r.CraftableDefault ? 0 : 1))
+                .SelectMany(r => r.Ingredients)
+                .ToList();
+
+            foreach (var ingredient in ingredients)
+            {
+                var quantity = ingredient.Quantity.GetBaseValue;
+                if (ingredient.IsSpecificItem && ingredient.Item != null)
+                {
+                    var id = ingredient.Item.TypeID;
+                    demand[id] = demand.GetValueOrDefault(id) + quantity;
+                }
+                else if (ingredient.Tag != null)
+                {
+                    foreach (var item in ingredient.Tag.TaggedItems())
+                    {
+                        var id = item.TypeID;
+                        demand[id] = demand.GetValueOrDefault(id) + quantity;
+                    }
+                }
+            }
+            return demand;
+        }
+
         public Dictionary<int, List<int>> ProductToRequiredItemsLookup()
         {
             return CraftingTables
