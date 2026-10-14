@@ -179,7 +179,13 @@ namespace TradeAssistant
                     // SellPrice * (1 - TaxRate) = CostPrice * (1 + Profit)
                     // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
                     var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) / (1 - calc.Store.GetTax()));
-                    updates.AddRange(calc.SetSellPrice(itemID, newPrice));
+                    if (calc.Config.DurabilityPricingEnabled)
+                    {
+                        foreach (var offer in calc.Store.StoreData.SellOffers.Where(o => o.MatchesTypeID(itemID)).ToList())
+                            updates.AddRange(calc.SetSellOfferPrice(offer, newPrice));
+                    }
+                    else
+                        updates.AddRange(calc.SetSellPrice(itemID, newPrice));
                     if (itemWarnings != null)
                         warnings.AddRange(itemWarnings);
                 }
@@ -233,6 +239,70 @@ namespace TradeAssistant
             }
             else
                 user.TempServerMessage(reason.ToStringLoc());
+        }
+
+
+        [ChatSubCommand(nameof(TradeAssistant), "Enables or disables durability/quality-based pricing. Usage: /ta durpricing <on|off>", ChatAuthorizationLevel.User)]
+        public static async Task DurabilityPricing(User user, string state)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            if (state.Equals("on", StringComparison.OrdinalIgnoreCase))
+            {
+                calc.Config.DurabilityPricingEnabled = true;
+                StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+                user.TempServerMessage(Localizer.DoStr("Durability/quality-based pricing is now ON. Run /ta update to apply it."));
+            }
+            else if (state.Equals("off", StringComparison.OrdinalIgnoreCase))
+            {
+                calc.Config.DurabilityPricingEnabled = false;
+                StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+                user.TempServerMessage(Localizer.DoStr("Durability/quality-based pricing is now OFF."));
+            }
+            else
+                user.TempServerMessage(Localizer.DoStr("Usage: /ta durpricing <on|off>"));
+        }
+
+        [ChatSubCommand(nameof(TradeAssistant), "Configures durability/quality-based pricing. Usage: /ta durpricingconfig <min|premium> <value>", ChatAuthorizationLevel.User)]
+        public static async Task DurabilityPricingConfig(User user, string key, string value)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            if (key.Equals("min", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var min) || min < 0f || min > 100f)
+                {
+                    user.TempServerMessage(Localizer.DoStr("Please provide a minimum price percentage between 0 and 100."));
+                    return;
+                }
+                calc.Config.DurabilityMinPricePercent = min;
+                StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+                user.TempServerMessage(Localizer.Do($"Worn items will be priced at no less than {Text.StyledNum(min)}% of the normal price."));
+            }
+            else if (key.Equals("premium", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var premium) || premium < 0f)
+                {
+                    user.TempServerMessage(Localizer.DoStr("Please provide a non-negative quality premium percentage."));
+                    return;
+                }
+                calc.Config.QualityPremiumPercent = premium;
+                StorageManager.Obj.MarkDirty(TradeAssistantData.Obj);
+                user.TempServerMessage(Localizer.Do($"Quality premium set to {Text.StyledNum(premium)}% per quality group."));
+            }
+            else
+                user.TempServerMessage(Localizer.DoStr("Usage: /ta durpricingconfig <min|premium> <value>"));
+        }
+
+        [ChatSubCommand(nameof(TradeAssistant), "Shows the current durability/quality-based pricing configuration", ChatAuthorizationLevel.User)]
+        public static async Task DurabilityPricingShow(User user)
+        {
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
+            if (calc == null) return;
+
+            user.TempServerMessage(Localizer.Do($"Durability/quality-based pricing: {(calc.Config.DurabilityPricingEnabled ? "ON" : "OFF")}. Worn items priced at no less than {Text.StyledNum(calc.Config.DurabilityMinPricePercent)}% of normal price. Quality premium {Text.StyledNum(calc.Config.QualityPremiumPercent)}% per quality group."));
         }
 
 

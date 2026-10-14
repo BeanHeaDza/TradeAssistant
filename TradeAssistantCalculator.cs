@@ -442,6 +442,33 @@ namespace TradeAssistant
         }
 
         public List<LocString> SetSellPrice(int item, float newPrice) => SetSellPrice(Item.Get(item), newPrice);
+
+        public List<LocString> SetSellOfferPrice(TradeOffer offer, float basePrice)
+        {
+            var oldPrice = offer.Price;
+            var newPrice = basePrice;
+
+            if (Config.DurabilityPricingEnabled && offer.Stack?.Item is DurabilityItem durable)
+            {
+                var minPercent = Mathf.Clamp(Config.DurabilityMinPricePercent, 0f, 100f) / 100f;
+                newPrice *= minPercent + (1f - minPercent) * Mathf.Clamp(durable.DurabilityPercent, 0f, 1f);
+
+                var qualityGroup = durable.GetQualityGroup();
+                if (Config.QualityPremiumPercent > 0f && qualityGroup > 0)
+                    newPrice *= 1f + qualityGroup * Config.QualityPremiumPercent / 100f;
+            }
+
+            newPrice = Mathf.RoundToAcceptedDigits(newPrice);
+            offer.Price = newPrice;
+            if (offer.Stack?.Item != null)
+                StoreSellPrices[offer.Stack.Item.TypeID] = newPrice;
+
+            var msgs = new List<LocString>();
+            if (oldPrice != newPrice)
+                msgs.AddLoc($"{Text.Positive(Localizer.DoStr("Updating sell price"))} of {offer.Stack?.Item?.UILink()} from {Text.StyledNum(oldPrice)} to {Text.StyledNum(newPrice)}");
+            return msgs;
+        }
+
         public List<LocString> SetSellPrice(Item item, float newPrice)
         {
             newPrice = Mathf.RoundToAcceptedDigits(newPrice);
