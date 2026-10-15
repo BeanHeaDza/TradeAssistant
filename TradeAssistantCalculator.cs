@@ -92,6 +92,35 @@ namespace TradeAssistant
             return null;
         }
 
+        public Dictionary<int, float> CraftingDemandPerItem()
+        {
+            var demand = new Dictionary<int, float>();
+            var ingredients = CraftingTables
+                .SelectMany(w => w.Recipes.Where(recipe => Users.Any(user => recipe.RequiredSkills.All(s => s.IsMet(user)))))
+                .SelectMany(r => r.Recipes.Skip(r.CraftableDefault ? 0 : 1))
+                .SelectMany(r => r.Ingredients)
+                .ToList();
+
+            foreach (var ingredient in ingredients)
+            {
+                var quantity = ingredient.Quantity.GetBaseValue;
+                if (ingredient.IsSpecificItem && ingredient.Item != null)
+                {
+                    var id = ingredient.Item.TypeID;
+                    demand[id] = demand.GetValueOrDefault(id) + quantity;
+                }
+                else if (ingredient.Tag != null)
+                {
+                    foreach (var item in ingredient.Tag.TaggedItems())
+                    {
+                        var id = item.TypeID;
+                        demand[id] = demand.GetValueOrDefault(id) + quantity;
+                    }
+                }
+            }
+            return demand;
+        }
+
         public Dictionary<int, List<int>> ProductToRequiredItemsLookup()
         {
             return CraftingTables
@@ -441,7 +470,61 @@ namespace TradeAssistant
             return true;
         }
 
+        public string? FindSellCategoryName(string nameOrPart)
+        {
+            foreach (var category in Store.StoreData.SellCategories)
+            {
+                if (category.IsBuy) continue;
+                if (category.Name.Equals(nameOrPart, StringComparison.OrdinalIgnoreCase))
+                    return category.Name;
+            }
+            foreach (var category in Store.StoreData.SellCategories)
+            {
+                if (category.IsBuy) continue;
+                if (category.Name.IndexOf(nameOrPart, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return category.Name;
+            }
+            return null;
+        }
+
+        public float DiscountPercentFor(int itemID)
+        {
+            if (Config.CategoryDiscounts.Count == 0) return 0f;
+
+            var offer = Store.StoreData.SellOffers.FirstOrDefault(o => o.MatchesTypeID(itemID));
+            if (offer == null || offer.Category == null) return 0f;
+
+            return Config.CategoryDiscounts.TryGetValue(offer.Category.Name, out var discount) ? discount : 0f;
+        }
+
         public List<LocString> SetSellPrice(int item, float newPrice) => SetSellPrice(Item.Get(item), newPrice);
+
+        public List<LocString> SetSellOfferPrice(TradeOffer offer, float basePrice)
+        {
+            var oldPrice = offer.Price;
+            var newPrice = basePrice;
+
+            if (Config.DurabilityPricingEnabled && offer.Stack?.Item is DurabilityItem durable)
+            {
+                var minPercent = Mathf.Clamp(Config.DurabilityMinPricePercent, 0f, 100f) / 100f;
+                newPrice *= minPercent + (1f - minPercent) * Mathf.Clamp(durable.DurabilityPercent, 0f, 1f);
+
+                var qualityGroup = durable.GetQualityGroup();
+                if (Config.QualityPremiumPercent > 0f && qualityGroup > 0)
+                    newPrice *= 1f + qualityGroup * Config.QualityPremiumPercent / 100f;
+            }
+
+            newPrice = Mathf.RoundToAcceptedDigits(newPrice);
+            offer.Price = newPrice;
+            if (offer.Stack?.Item != null)
+                StoreSellPrices[offer.Stack.Item.TypeID] = newPrice;
+
+            var msgs = new List<LocString>();
+            if (oldPrice != newPrice)
+                msgs.AddLoc($"{Text.Positive(Localizer.DoStr("Updating sell price"))} of {offer.Stack?.Item?.UILink()} from {Text.StyledNum(oldPrice)} to {Text.StyledNum(newPrice)}");
+            return msgs;
+        }
+
         public List<LocString> SetSellPrice(Item item, float newPrice)
         {
             newPrice = Mathf.RoundToAcceptedDigits(newPrice);
@@ -469,6 +552,116 @@ namespace TradeAssistant
                 o.Price = newPrice;
             });
             return msgs;
+        }
+
+        /// <summary>
+        /// Calculates the maximum buy price for an ingredient by working backwards from the sell prices
+        /// of the products that consume it: for each sellable product, the total cost that still leaves
+        /// the configured profit is derived from its sell price (SellPrice = CostPrice * (1 + Profit) /
+        /// (1 - TaxRate)), the cost of everything else in the recipe is subtracted, and the remainder is
+        /// divided by the adjusted ingredient quantity. The strictest (lowest) limit across all recipes
+        /// wins, so buy orders never eat the configured profit.
+        /// </summary>
+        public bool TryGetMaxBuyPriceForIngredient(Item ingredient, out float maxBuyPrice, out StringBuilder reason)
+        {
+            var user = Users.FirstOrDefault();
+            maxBuyPrice = float.PositiveInfinity;
+            reason = new StringBuilder();
+            var messages = reason;
+
+            if (user == null)
+            {
+                messages.AppendLineLoc($"No partner player available to evaluate recipes.");
+                return false;
+            }
+
+            // Collect every recipe the user can craft that consumes this ingredient.
+            var elementRecipes = new List<(Recipe Recipe, CraftingComponent CraftingTable, CraftingElement Product, IngredientElement Element)>();
+            foreach (var craftingTable in CraftingTables)
+                foreach (var recipeFamily in craftingTable.Recipes.Where(recipe => recipe.RequiredSkills.All(s => s.IsMet(user))))
+                    foreach (var recipe in recipeFamily.Recipes.Skip(recipeFamily.CraftableDefault ? 0 : 1))
+                    {
+                        var element = recipe.Ingredients.FirstOrDefault(i =>
+                            (i.IsSpecificItem && i.Item != null && i.Item.TypeID == ingredient.TypeID) ||
+                            (!i.IsSpecificItem && i.Tag != null && i.Tag.TaggedItems().Any(t => t.TypeID == ingredient.TypeID)));
+                        if (element == null) continue;
+
+                        var products = recipe.Products;
+                        if (products.Count > 1)
+                            products = recipe.Products.Where(p => !Config.ByProducts.Any(byProductId => byProductId == p.Item.TypeID)).ToList();
+                        if (products.Count != 1) continue;
+
+                        elementRecipes.Add((recipe, craftingTable, products[0], element));
+                    }
+
+            if (elementRecipes.Count == 0)
+            {
+                messages.AppendLineLoc($"No usable recipe consumes {ingredient.UILink()} on your crafting tables (check that you have the required skills).");
+                return false;
+            }
+
+            var considered = 0;
+            var skipped = new List<LocString>();
+            foreach (var (recipe, craftingTable, product, element) in elementRecipes)
+            {
+                if (!StoreSellPrices.TryGetValue(product.Item.TypeID, out var sellPrice))
+                {
+                    skipped.AddLoc($"The product {product.Item.UILink()} of {recipe.UILink()} has no sell order in your store, so no max buy price can be derived from it.");
+                    continue;
+                }
+
+                var resourceEfficiencyContext = new ModuleContext(user, craftingTable.Parent.Position, craftingTable.ResourceEfficiencyModule);
+                var resourceBonusContext = BonusContext.ForCraftingPreview(user, recipe.Family, craftingTable.Parent, BonusAction.ResourceCost);
+                var laborBonusContext = BonusContext.ForCraftingPreview(user, recipe.Family, craftingTable.Parent, BonusAction.LaborCost);
+                var yieldBonusContext = BonusContext.ForCraftingPreview(user, recipe.Family, craftingTable.Parent, BonusAction.Yield);
+
+                var ingredientCount = GetAdjustedIngredientQuantity(element, resourceEfficiencyContext, craftingTable, resourceBonusContext);
+                var productCount = GetAdjustedProductQuantity(product, recipe, resourceEfficiencyContext, craftingTable, resourceBonusContext, yieldBonusContext);
+                if (ingredientCount <= 0f || productCount <= 0f) continue;
+
+                // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
+                // CostPrice = SellPrice / (1 + Profit) * (1 - TaxRate)
+                var costLimitPerUnit = sellPrice / (1 + Config.Profit / 100f) * (1 - Store.GetTax());
+
+                // Current total cost of the product, using the current buy price of this ingredient.
+                if (!TryGetCostPrice(product.Item, out var currentCostPerUnit, out _, out _)) continue;
+                var currentTotalCost = currentCostPerUnit * productCount;
+
+                // Current contribution of the ingredient inside that total cost.
+                if (!TryGetCostPrice(ingredient, out var currentIngredientUnitPrice, out _, out _)) continue;
+                var currentIngredientTotal = currentIngredientUnitPrice * ingredientCount;
+
+                var otherTotalCost = currentTotalCost - currentIngredientTotal;
+                var allowedIngredientTotal = costLimitPerUnit * productCount - otherTotalCost;
+                var maxPriceForRecipe = allowedIngredientTotal / ingredientCount;
+                if (maxPriceForRecipe < 0f)
+                {
+                    messages.AppendLineLoc($"{recipe.UILink()}: even buying {ingredient.UILink()} for free, the other costs ({Text.StyledNum(otherTotalCost)}) already exceed the allowed total cost ({Text.StyledNum(costLimitPerUnit * productCount)}) for selling {product.Item.UILink()} at {Text.StyledNum(sellPrice)}. Lower the sell price or stop buying this ingredient.");
+                    maxPriceForRecipe = 0f;
+                }
+                else
+                {
+                    messages.AppendLineLoc($"{recipe.UILink()}: selling {product.Item.UILink()} at {Text.StyledNum(sellPrice)} allows {Text.StyledNum(costLimitPerUnit)} cost per unit; after removing the other costs ({Text.StyledNum(otherTotalCost)}), buying {Text.StyledNum(ingredientCount)} {ingredient.UILink()} can cost at most {Text.StyledNum(maxPriceForRecipe)} each.");
+                }
+                considered++;
+                if (maxPriceForRecipe < maxBuyPrice) maxBuyPrice = maxPriceForRecipe;
+            }
+
+            if (skipped.Count > 0)
+            {
+                messages.AppendLine();
+                messages.AppendLineLoc($"Skipped recipe(s):");
+                skipped.ForEach(s => messages.AppendLine($"- {s}"));
+            }
+
+            if (!float.IsPositiveInfinity(maxBuyPrice))
+            {
+                messages.Insert(0, Localizer.Do($"Max buy price for {ingredient.UILink()} is {Text.StyledNum(maxBuyPrice)} (based on {Text.StyledNum(considered)} sellable recipe(s)).\n"));
+                return true;
+            }
+
+            messages.AppendLineLoc($"No sellable product consumes {ingredient.UILink()}, so no max buy price could be derived.");
+            return false;
         }
     }
 }
