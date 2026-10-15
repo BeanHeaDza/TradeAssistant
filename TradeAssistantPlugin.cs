@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace TradeAssistant
 {
-    internal class TradeAssistantPlugin : Singleton<TradeAssistantPlugin>, IModKitPlugin, ISaveablePlugin
+    internal class TradeAssistantPlugin : Singleton<TradeAssistantPlugin>, IModKitPlugin, ISaveablePlugin, IThreadedPlugin
     {
         [NotNull] private readonly TradeAssistantData data;
         public TradeAssistantPlugin()
@@ -27,5 +27,13 @@ namespace TradeAssistant
         {
             StorageManager.Obj.MarkDirty(data);
         }
+
+        /// <summary>Server tick hook used to drive the optional automatic re-pricing loop.</summary>
+        public void Run()
+        {
+            TradeAssistantAutoRepricer.Tick();
+        }
+
+        public Task ShutdownAsync() => Task.CompletedTask;
     }
 }
