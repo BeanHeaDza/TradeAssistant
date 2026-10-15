@@ -92,6 +92,35 @@ namespace TradeAssistant
             return null;
         }
 
+        public Dictionary<int, float> CraftingDemandPerItem()
+        {
+            var demand = new Dictionary<int, float>();
+            var ingredients = CraftingTables
+                .SelectMany(w => w.Recipes.Where(recipe => Users.Any(user => recipe.RequiredSkills.All(s => s.IsMet(user)))))
+                .SelectMany(r => r.Recipes.Skip(r.CraftableDefault ? 0 : 1))
+                .SelectMany(r => r.Ingredients)
+                .ToList();
+
+            foreach (var ingredient in ingredients)
+            {
+                var quantity = ingredient.Quantity.GetBaseValue;
+                if (ingredient.IsSpecificItem && ingredient.Item != null)
+                {
+                    var id = ingredient.Item.TypeID;
+                    demand[id] = demand.GetValueOrDefault(id) + quantity;
+                }
+                else if (ingredient.Tag != null)
+                {
+                    foreach (var item in ingredient.Tag.TaggedItems())
+                    {
+                        var id = item.TypeID;
+                        demand[id] = demand.GetValueOrDefault(id) + quantity;
+                    }
+                }
+            }
+            return demand;
+        }
+
         public Dictionary<int, List<int>> ProductToRequiredItemsLookup()
         {
             return CraftingTables
@@ -441,7 +470,61 @@ namespace TradeAssistant
             return true;
         }
 
+        public string? FindSellCategoryName(string nameOrPart)
+        {
+            foreach (var category in Store.StoreData.SellCategories)
+            {
+                if (category.IsBuy) continue;
+                if (category.Name.Equals(nameOrPart, StringComparison.OrdinalIgnoreCase))
+                    return category.Name;
+            }
+            foreach (var category in Store.StoreData.SellCategories)
+            {
+                if (category.IsBuy) continue;
+                if (category.Name.IndexOf(nameOrPart, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return category.Name;
+            }
+            return null;
+        }
+
+        public float DiscountPercentFor(int itemID)
+        {
+            if (Config.CategoryDiscounts.Count == 0) return 0f;
+
+            var offer = Store.StoreData.SellOffers.FirstOrDefault(o => o.MatchesTypeID(itemID));
+            if (offer == null || offer.Category == null) return 0f;
+
+            return Config.CategoryDiscounts.TryGetValue(offer.Category.Name, out var discount) ? discount : 0f;
+        }
+
         public List<LocString> SetSellPrice(int item, float newPrice) => SetSellPrice(Item.Get(item), newPrice);
+
+        public List<LocString> SetSellOfferPrice(TradeOffer offer, float basePrice)
+        {
+            var oldPrice = offer.Price;
+            var newPrice = basePrice;
+
+            if (Config.DurabilityPricingEnabled && offer.Stack?.Item is DurabilityItem durable)
+            {
+                var minPercent = Mathf.Clamp(Config.DurabilityMinPricePercent, 0f, 100f) / 100f;
+                newPrice *= minPercent + (1f - minPercent) * Mathf.Clamp(durable.DurabilityPercent, 0f, 1f);
+
+                var qualityGroup = durable.GetQualityGroup();
+                if (Config.QualityPremiumPercent > 0f && qualityGroup > 0)
+                    newPrice *= 1f + qualityGroup * Config.QualityPremiumPercent / 100f;
+            }
+
+            newPrice = Mathf.RoundToAcceptedDigits(newPrice);
+            offer.Price = newPrice;
+            if (offer.Stack?.Item != null)
+                StoreSellPrices[offer.Stack.Item.TypeID] = newPrice;
+
+            var msgs = new List<LocString>();
+            if (oldPrice != newPrice)
+                msgs.AddLoc($"{Text.Positive(Localizer.DoStr("Updating sell price"))} of {offer.Stack?.Item?.UILink()} from {Text.StyledNum(oldPrice)} to {Text.StyledNum(newPrice)}");
+            return msgs;
+        }
+
         public List<LocString> SetSellPrice(Item item, float newPrice)
         {
             newPrice = Mathf.RoundToAcceptedDigits(newPrice);
