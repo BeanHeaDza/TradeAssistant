@@ -1,0 +1,8 @@
+{
+  "name": "TradeAssistant Rework",
+  "version": "0.6.0",
+  "ecoVersion": "0.14.2",
+  "author": "BeanHeaDza (fork: JuanBerta)",
+  "website": "https://github.com/JuanBerta/TradeAssistant",
+  "description": "Reworked Trade Assistant mod for Eco 0.14.2. Adds automatic re-pricing, buy-price auto-calculation, exchange integration, competitive pricing rules, config import/export and multi-store support. Original author: BeanHeaDza; maintained fork: github.com/JuanBerta/TradeAssistant."
+}
