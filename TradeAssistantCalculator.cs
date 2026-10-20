@@ -33,6 +33,9 @@ namespace TradeAssistant
 
         private Dictionary<int, float> StoreSellPrices { get; }
         private Dictionary<int, CachedPrice> CachedPrices { get; } = new();
+        // 1.2.7: explicit "currently being computed" marker to distinguish real recursion from
+        // unreachable items in TryGetCostPrice.
+        private readonly HashSet<int> _visiting = new();
 
         public UserConfig Config { get; }
         public StoreComponent Store { get; }
@@ -219,6 +222,19 @@ namespace TradeAssistant
         public bool TryGetCostPrice(int item, out float outPrice, out StringBuilder reason, out List<LocString>? warnings) => TryGetCostPrice(Item.Get(item), out outPrice, out reason, out warnings);
         public bool TryGetCostPrice(Item item, out float outPrice, out StringBuilder reason, out List<LocString>? warnings)
         {
+            // 1.2.7: true recursion check — the item is currently being computed somewhere up the
+            // call stack (a real ingredient cycle), as opposed to merely failing to resolve.
+            if (_visiting.Contains(item.TypeID))
+            {
+                outPrice = float.PositiveInfinity;
+                reason = new StringBuilder(Localizer.Do($"Recursive recipe!"));
+                warnings = null;
+                return false;
+            }
+
+            _visiting.Add(item.TypeID);
+            try
+            {
             warnings = null;
 
             // Check if the user is buying the item already in the store
@@ -240,6 +256,7 @@ namespace TradeAssistant
                 warnings = cachedPrice.Warnings;
                 return !float.IsPositiveInfinity(cachedPrice.Price);
             }
+            // 1.2.7: keep the positive-infinity cache entry as the "unreachable" sentinel for future lookups.
             CachedPrices.Add(item.TypeID, new CachedPrice(float.PositiveInfinity, new StringBuilder(Localizer.Do($"Recursive recipe!"))));
 
             if (Config.FrozenSellPrices.Any(typeID => typeID == item.TypeID))
@@ -440,6 +457,11 @@ namespace TradeAssistant
                 outPrice = bestPrice.Price;
                 reason = bestPrice.Reason;
                 return true;
+            }
+            }
+            finally
+            {
+                _visiting.Remove(item.TypeID);
             }
         }
 

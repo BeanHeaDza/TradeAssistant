@@ -30,6 +30,7 @@ namespace TradeAssistant
         [Serialized] public float SoonToExpireDiscount { get; set; } = 0f;
         [Serialized] public float SoonToExpireMinFreshness { get; set; } = 0f;
         [Serialized] public float SoonToExpireMaxFreshness { get; set; } = 50f;
+        [Serialized] public string SoonToExpireCategoryName { get; set; } = "SOON TO EXPIRE";
         [Serialized] public ThreadSafeList<int> ByProducts { get; set; } = new();
         [Serialized] public ThreadSafeList<int> FrozenSellPrices { get; set; } = new();
         [Serialized] public ThreadSafeList<int> PartnerPlayers { get; set; } = new();
@@ -64,7 +65,14 @@ namespace TradeAssistant
                 CompetitiveFloorPercent = CompetitiveFloorPercent,
                 CompetitiveCeilingPercent = CompetitiveCeilingPercent,
                 BuyPriceAutoEnabled = BuyPriceAutoEnabled,
-                BuyPriceAutoPercent = BuyPriceAutoPercent
+                BuyPriceAutoPercent = BuyPriceAutoPercent,
+                SoonToExpireCategoryName = SoonToExpireCategoryName,
+                SelectedStoreName = SelectedStoreName,
+                CompetitiveCategoriesText = string.Join(", ", CompetitiveCategories),
+                CategoryDiscountsText = string.Join("; ", CategoryDiscounts.Select(kv => $"{kv.Key}:{kv.Value}")),
+                RecipeQuantitiesText = RecipeQuantities.Count == 0
+                    ? string.Empty
+                    : string.Join("; ", RecipeQuantities.Select(kv => $"{Item.Get(kv.Key)?.Name ?? kv.Key.ToString()}: cook={kv.Value.CookQty} craft={kv.Value.CraftQty}"))
             };
             ByProducts.Select(id => Item.Get(id)).Where(p => p != null).ForEach(ui.ByProducts.Add);
             FrozenSellPrices.Select(id => Item.Get(id)).Where(p => p != null).ForEach(ui.FrozenSellPrices.Add);
@@ -84,6 +92,28 @@ namespace TradeAssistant
             AutoRepricingIntervalMinutes = Math.Clamp(config.AutoRepricingIntervalMinutes, 1f, 1440f);
             BuyPriceAutoEnabled = config.BuyPriceAutoEnabled;
             BuyPriceAutoPercent = Math.Clamp(config.BuyPriceAutoPercent, 1f, 200f);
+            // 1.2.1: write back the three competitive-pricing settings from the UI (they were missing).
+            CompetitivePricingEnabled = config.CompetitivePricingEnabled;
+            CompetitiveFloorPercent = Math.Clamp(config.CompetitiveFloorPercent, 0f, 100f);
+            CompetitiveCeilingPercent = Math.Clamp(config.CompetitiveCeilingPercent, 0f, 100f);
+            // 1.1.2: configurable "SOON TO EXPIRE" category name.
+            if (!string.IsNullOrWhiteSpace(config.SoonToExpireCategoryName))
+                SoonToExpireCategoryName = config.SoonToExpireCategoryName.Trim();
+            // 1.1.4: expose remaining config entries through the /ta config UI.
+            SelectedStoreName = string.IsNullOrWhiteSpace(config.SelectedStoreName) ? null : config.SelectedStoreName.Trim();
+            CompetitiveCategories.Clear();
+            if (!string.IsNullOrWhiteSpace(config.CompetitiveCategoriesText))
+                foreach (var name in config.CompetitiveCategoriesText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    if (!string.IsNullOrEmpty(name))
+                        CompetitiveCategories.Add(name);
+            CategoryDiscounts.Clear();
+            if (!string.IsNullOrWhiteSpace(config.CategoryDiscountsText))
+                foreach (var part in config.CategoryDiscountsText.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var kv = part.Split(':', 2);
+                    if (kv.Length == 2 && float.TryParse(kv[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var percent))
+                        CategoryDiscounts[kv[0].Trim()] = Math.Clamp(percent, 0f, 100f);
+                }
             ByProducts.Clear();
             ByProducts.AddRange(config.ByProducts.Select(p => p.TypeID));
             FrozenSellPrices.Clear();
@@ -108,6 +138,11 @@ namespace TradeAssistant
         [Eco, Range(0f, 100f)] public float CompetitiveCeilingPercent { get; set; } = 0f;
         [Eco] public bool BuyPriceAutoEnabled { get; set; } = false;
         [Eco, Range(1f, 200f)] public float BuyPriceAutoPercent { get; set; } = 80f;
+        [Eco] public string? SoonToExpireCategoryName { get; set; } = "SOON TO EXPIRE";
+        [Eco] public string? SelectedStoreName { get; set; } = null;
+        [Eco] public string? CompetitiveCategoriesText { get; set; } = null;
+        [Eco] public string? CategoryDiscountsText { get; set; } = null;
+        [Eco] public string? RecipeQuantitiesText { get; set; } = null;
         [Eco, AllowEmpty] public ControllerList<Item> ByProducts { get; set; }
         [Eco, AllowEmpty] public ControllerList<Item> FrozenSellPrices { get; set; }
         [Eco, AllowEmpty] public ControllerList<User> Partners { get; set; }

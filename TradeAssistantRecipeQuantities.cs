@@ -38,15 +38,17 @@ namespace TradeAssistant
             "StoveItem",
         };
 
-        /// <summary>Classifies a recipe: cook when it is produced on a cooking workbench (campfire,
-        /// stove, oven, kitchen...) or when any of its products is a food item; otherwise craft.</summary>
+        /// <summary>Classifies a recipe: cook when any of its products is a food item (the generic
+        /// check — 1.2.6 it is evaluated first so third-party or future vanilla cooking workbenches
+        /// are never misclassified as craft), or when it is produced on a known cooking workbench
+        /// (campfire, stove, oven, kitchen...); otherwise craft.</summary>
         public static RecipeType GetRecipeType(Recipe recipe)
         {
-            var table = recipe.Family?.CraftingTable;
-            if (table != null && IsCookingWorkbench(table))
+            if (recipe.Products.Any(p => p.Item is FoodItem))
                 return RecipeType.Cook;
 
-            if (recipe.Products.Any(p => p.Item is FoodItem))
+            var table = recipe.Family?.CraftingTable;
+            if (table != null && IsCookingWorkbench(table))
                 return RecipeType.Cook;
 
             return RecipeType.Craft;

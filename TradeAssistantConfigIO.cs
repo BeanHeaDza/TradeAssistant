@@ -130,20 +130,41 @@ namespace TradeAssistant
         private static string DecodePayload(string payload)
         {
             var candidate = payload?.Trim() ?? throw new InvalidOperationException("empty payload");
-            // Prefer Base64 when it looks like one: JSON never passes the Base64 alphabet check
-            // (characters like '{', '"', ':' are rejected by Convert.FromBase64String), so a
-            // successful decode is a strong signal.
-            if (candidate.Length % 4 == 0)
+            // 1.2.5: probe Base64 by alphabet instead of by length. JSON never passes the Base64
+            // alphabet check, while base64 payloads that were truncated or lost their padding can
+            // still be recovered by re-padding before the final decode attempt.
+            if (LooksLikeBase64(candidate))
             {
                 try
                 {
-                    var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(candidate));
+                    var normalized = candidate
+                        .Replace('-', '+')
+                        .Replace('_', '/');
+                    switch (normalized.Length % 4)
+                    {
+                        case 2: normalized += "=="; break;
+                        case 3: normalized += "="; break;
+                    }
+                    var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(normalized));
                     if (!string.IsNullOrWhiteSpace(decoded) && decoded.TrimStart().StartsWith("{"))
                         return decoded;
                 }
                 catch (FormatException) { }
             }
             return candidate;
+        }
+
+        /// <summary>Base64 alphabet probe: only letters, digits, '+', '/' and '=' (whitespace allowed).</summary>
+        private static bool LooksLikeBase64(string s)
+        {
+            if (string.IsNullOrEmpty(s) || s.Length < 4) return false;
+            foreach (var c in s)
+            {
+                if (char.IsWhiteSpace(c)) continue;
+                if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=' || c == '-' || c == '_'))
+                    return false;
+            }
+            return true;
         }
 
         private static ThreadSafeList<string> ToStringList(List<string>? names)

@@ -62,9 +62,12 @@ namespace TradeAssistant
 
         public static float GetTax(this StoreComponent store)
         {
+            // 1.3.1: guard against null currency / missing settlement data before querying taxes;
+            // a store without a currency cannot have a meaningful sales tax contribution.
+            if (store == null || store.Currency == null) return 0;
             var settlement = SettlementUtils.GetSettlementsAtPos(store.Parent.Position3i);
-            if (settlement == null) return 0;
-            return settlement.Sum(s => s.Taxes.GetSalesTax(store.Currency));
+            if (settlement == null || !settlement.Any()) return 0;
+            return settlement.Sum(s => s.Taxes?.GetSalesTax(store.Currency) ?? 0f);
         }
 
         public static string ToStyledNum(this float number)

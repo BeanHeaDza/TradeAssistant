@@ -5,6 +5,7 @@ using Eco.Gameplay.Items;
 using Eco.Gameplay.Objects;
 using Eco.Shared.Localization;
 using Eco.Shared.Utils;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -38,15 +39,53 @@ namespace TradeAssistant
     /// </summary>
     public static class TradeAssistantMarket
     {
-        public static Dictionary<int, MarketStats> ComputeMarket(bool sellOffers)
+        // 1.3.2: cache the world component scan for a short TTL instead of re-scanning
+        // AllObjsWithComponent on every user's every calculation.
+        private static readonly object StoreCacheLock = new();
+        private static List<StoreComponent>? _storeCache;
+        private static DateTime _storeCacheUtc = DateTime.MinValue;
+        private static readonly TimeSpan StoreCacheTtl = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// All player stores that are usable for market statistics: enabled, with a currency and a
+        /// StoreData component. Disabled / unpowered / currency-less stores are excluded (1.3.1).
+        /// </summary>
+        private static List<StoreComponent> GetEnabledStores()
+        {
+            var now = DateTime.UtcNow;
+            if (_storeCache == null || now - _storeCacheUtc > StoreCacheTtl)
+            {
+                lock (StoreCacheLock)
+                {
+                    if (_storeCache == null || now - _storeCacheUtc > StoreCacheTtl)
+                    {
+                        _storeCache = WorldObjectUtil.AllObjsWithComponent<StoreComponent>()
+                            .Where(s => s.StoreData != null && s.Enabled && s.Currency != null)
+                            .ToList();
+                        _storeCacheUtc = now;
+                    }
+                }
+            }
+            return _storeCache;
+        }
+
+        /// <summary>Aggregates the sell/buy orders of every enabled player store (optionally excluding
+        /// one store, 1.1.1, so competitive pricing never follows the store's own orders).</summary>
+        public static Dictionary<int, MarketStats> ComputeMarket(bool sellOffers, StoreComponent? excludeStore = null)
         {
             var running = new Dictionary<int, (int count, float qty, float value, float min, float max)>();
-            foreach (var store in WorldObjectUtil.AllObjsWithComponent<StoreComponent>())
+            foreach (var store in GetEnabledStores())
             {
+                if (excludeStore != null && ReferenceEquals(store, excludeStore)) continue;
+
                 var offers = sellOffers ? store.StoreData.SellOffers : store.StoreData.BuyOffers;
                 foreach (var offer in offers)
                 {
+                    // 1.2.4: offers without a stack (special-request / tag offers) have no
+                    // observable quantity; skipping them keeps the average from being distorted
+                    // by 0-quantity rows.
                     var quantity = offer.Stack?.Quantity ?? 0;
+                    if (quantity <= 0f) continue;
                     foreach (var typeID in offer.OfferedItemTypeIDs())
                     {
                         if (!running.TryGetValue(typeID, out var stats))
@@ -76,7 +115,7 @@ namespace TradeAssistant
         public static Dictionary<int, List<float>> ComputeMarketPriceLists(bool sellOffers)
         {
             var result = new Dictionary<int, List<float>>();
-            foreach (var store in WorldObjectUtil.AllObjsWithComponent<StoreComponent>())
+            foreach (var store in GetEnabledStores())
             {
                 var offers = sellOffers ? store.StoreData.SellOffers : store.StoreData.BuyOffers;
                 foreach (var offer in offers)

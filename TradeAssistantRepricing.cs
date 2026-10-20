@@ -70,7 +70,7 @@ namespace TradeAssistant
                                     competitiveItemIds.Add(id);
                     }
                 }
-                marketSellStats = TradeAssistantMarket.ComputeMarket(sellOffers: true);
+                marketSellStats = TradeAssistantMarket.ComputeMarket(sellOffers: true, excludeStore: calc.Store);
             }
 
             var buyProductsToUpdate = calc.Store.StoreData.BuyOffers
@@ -79,13 +79,16 @@ namespace TradeAssistant
                 .Where(storeSellItemIds.Contains)
                 .ToList();
 
-            // Items placed in a store category named "SOON TO EXPIRE" are updated separately:
-            // they get the player-configured discount percentage applied on top of the normal price.
-            // Only offers whose freshness qualifiers (min/max durability, 0..100) fall inside the
-            // configured [min, max] freshness window get the discount; fresh or unrestricted offers
-            // in that category are priced normally.
+            // Items placed in the configured "SOON TO EXPIRE" category (configurable, 1.1.2) are
+            // updated separately: they get the player-configured discount percentage applied on top
+            // of the normal price. Only offers whose freshness qualifiers (min/max durability,
+            // 0..100) fall inside the configured [min, max] freshness window get the discount;
+            // fresh or unrestricted offers in that category are priced normally.
+            var soonToExpireCategoryName = string.IsNullOrWhiteSpace(calc.Config.SoonToExpireCategoryName)
+                ? "SOON TO EXPIRE"
+                : calc.Config.SoonToExpireCategoryName.Trim();
             var soonToExpireItemIds = calc.Store.StoreData.SellCategories
-                .Where(c => !c.IsBuy && string.Equals(c.Name?.Trim(), "SOON TO EXPIRE", StringComparison.OrdinalIgnoreCase))
+                .Where(c => !c.IsBuy && string.Equals(c.Name?.Trim(), soonToExpireCategoryName, StringComparison.OrdinalIgnoreCase))
                 .SelectMany(c => c.Offers)
                 .Where(o => o.HasQualifiers && o.MinDurability >= calc.Config.SoonToExpireMinFreshness && o.MaxDurability <= calc.Config.SoonToExpireMaxFreshness)
                 .SelectMany(o => o.OfferedItemTypeIDs())
@@ -177,7 +180,7 @@ namespace TradeAssistant
                         .ForEach(u => output.AppendLine(u));
                     if (discountedUpdates.Count > 0)
                     {
-                        output.AppendLineLoc($"Applied the \"SOON TO EXPIRE\" discount of {Text.StyledNum(calc.Config.SoonToExpireDiscount)}% to {Text.StyledNum(discountedUpdates.Count)} order(s):");
+                        output.AppendLineLoc($"Applied the \"{soonToExpireCategoryName}\" discount of {Text.StyledNum(calc.Config.SoonToExpireDiscount)}% to {Text.StyledNum(discountedUpdates.Count)} order(s):");
                         discountedUpdates
                             .Where(u => !string.IsNullOrWhiteSpace(u))
                             .ForEach(u => output.AppendLine(u));

@@ -32,7 +32,8 @@ namespace TradeAssistant
         private const double EventDebounceSeconds = 10.0;
 
         private static bool _subscribed;
-        private static bool _running;
+        private static readonly HashSet<int> _runningUsers = new();
+        private static readonly HashSet<int> _pendingRepriceUserIds = new();
         private static DateTime _lastTickUtc = DateTime.MinValue;
         private static DateTime _lastEventUtc = DateTime.MinValue;
         private static readonly Dictionary<int, DateTime> NextRunUtcByUser = new();
@@ -62,11 +63,21 @@ namespace TradeAssistant
 
             foreach (var userId in enabledUserIds)
             {
-                if (NextRunUtcByUser.TryGetValue(userId, out var next) && now < next) continue;
+                var due = !NextRunUtcByUser.TryGetValue(userId, out var next) || now >= next;
+                if (!due && !_pendingRepriceUserIds.Contains(userId)) continue;
 
                 var user = UserManager.FindUserByID(userId);
-                if (user == null || !user.IsOnline) continue;
+                if (user == null || !user.IsOnline)
+                {
+                    // 1.1.3: offline players that fell due are flagged so the market changes that
+                    // happened while they were away are caught up when they come online.
+                    _pendingRepriceUserIds.Add(userId);
+                    if (!NextRunUtcByUser.ContainsKey(userId))
+                        NextRunUtcByUser[userId] = now;
+                    continue;
+                }
 
+                _pendingRepriceUserIds.Remove(userId);
                 NextRunUtcByUser[userId] = now.AddMinutes(Math.Max(0.5, user.Config().AutoRepricingIntervalMinutes));
                 _ = RunRepricingAsync(user);
             }
@@ -79,20 +90,28 @@ namespace TradeAssistant
         /// <summary>Marks every enabled user as due now, unless we are the ones that just modified offers.</summary>
         private static void ScheduleSoon()
         {
-            if (_running) return;
+            if (_runningUsers.Count > 0) return;
 
             var now = DateTime.UtcNow;
             if ((now - _lastEventUtc).TotalSeconds < EventDebounceSeconds) return;
             _lastEventUtc = now;
 
             foreach (var kv in TradeAssistantData.Obj.UserConfiguration.Where(kv => kv.Value.AutoRepricingEnabled))
+            {
                 NextRunUtcByUser[kv.Key] = now;
+                // 1.1.3: market events that happen while the player is offline are queued for catch-up.
+                var target = UserManager.FindUserByID(kv.Key);
+                if (target == null || !target.IsOnline)
+                    _pendingRepriceUserIds.Add(kv.Key);
+            }
         }
 
+        // 1.2.3: per-user concurrency — a long repricing pass for one user no longer blocks or
+        // drops repricing for every other user; runs requested while a user's own pass is in
+        // flight are queued via _pendingRepriceUserIds and re-run as soon as the pass finishes.
         private static async Task RunRepricingAsync(User user)
         {
-            if (_running) return;
-            _running = true;
+            if (!_runningUsers.Add(user.Id)) return;
             try
             {
                 var calc = await TradeAssistantCalculator.TryInitialize(user);
@@ -110,7 +129,14 @@ namespace TradeAssistant
             }
             finally
             {
-                _running = false;
+                _runningUsers.Remove(user.Id);
+                // 1.2.3: catch-up run for work that arrived while this pass was in flight.
+                if (_pendingRepriceUserIds.Remove(user.Id))
+                {
+                    var refreshed = UserManager.FindUserByID(user.Id);
+                    if (refreshed != null && refreshed.IsOnline)
+                        _ = RunRepricingAsync(refreshed);
+                }
             }
         }
     }
