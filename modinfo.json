@@ -1,0 +1,8 @@
+{
+  "name": "TradeAssistant Rework",
+  "version": "0.9.0",
+  "ecoVersion": "0.14.2.1",
+  "author": "BeanHeaDza (fork: JuanBerta)",
+  "website": "https://github.com/JuanBerta/TradeAssistant",
+  "description": "Reworked Trade Assistant mod for Eco 0.14.2. Adds automatic re-pricing, buy-price auto-calculation, exchange integration, competitive pricing rules, crafting fee tax support, config import/export, multi-store support, per-recipe quantities and automatic buy pricing from market sell prices. Original author: BeanHeaDza; maintained fork: github.com/JuanBerta/TradeAssistant."
+}

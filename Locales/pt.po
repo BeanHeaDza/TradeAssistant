@@ -1,0 +1,114 @@
+# Português (Portuguese) translations for Trade Assistant.
+# Translations are loaded by Eco from the mod's Locales folder at runtime.
+
+
+msgid "- Next up run the "
+msgstr "- Em seguida, execute: "
+
+msgid "- Now go through your buy orders and set the buy prices as well as the buy limits for each item."
+msgstr "- Agora revise suas ordens de compra e defina os preços de compra, bem como os limites de compra de cada item."
+
+msgid "- Once you're done with that the last step is to run "
+msgstr "- Quando terminar, o último passo é executar: "
+
+msgid "- Run "
+msgstr "- Execute: "
+
+msgid "- The first step is to run "
+msgstr "- O primeiro passo é executar: "
+
+msgid "Mods"
+msgstr "Mods"
+
+msgid "This mod will help you setup your store by adding buy and sell orders onto it and updating the sell order prices based on your profit configurations you've setup."
+msgstr "Este mod ajuda você a configurar sua loja adicionando ordens de compra e venda e atualizando os preços de venda com base nas suas configurações de lucro."
+
+msgid "Trade Assistant Configuration"
+msgstr "Configuração do Trade Assistant"
+
+msgid "Updating buy price"
+msgstr "Atualizando preço de compra"
+
+msgid "Updating sell price"
+msgstr "Atualizando preço de venda"
+
+msgid "Welcome to the Trade Assistant mod!"
+msgstr "Bem-vindo ao mod Trade Assistant!"
+
+msgid "Automatic re-pricing is now OFF."
+msgstr "Automatic re-pricing is now OFF."
+
+msgid "Please provide an interval between 1 and 1440 minutes."
+msgstr "Please provide an interval between 1 and 1440 minutes."
+
+msgid "- Optional: run /ta autoreprice on to re-price your store automatically every N minutes (default 30) and whenever market activity or store offers change. Use /ta autoreprice interval <minutes> to change the interval, /ta autoreprice status to check and /ta autoreprice off to disable."
+msgstr "- Optional: run /ta autoreprice on to re-price your store automatically every N minutes (default 30) and whenever market activity or store offers change. Use /ta autoreprice interval <minutes> to change the interval, /ta autoreprice status to check and /ta autoreprice off to disable."
+
+msgid "- Optional: use /ta exchange status to compare your store prices with the current market (exchange) average/min/max across all player stores, and /ta exchange price <avg|min> [sell|buy] to sync your orders to that market baseline."
+msgstr "- Optional: use /ta exchange status to compare your store prices with the current market (exchange) average/min/max across all player stores, and /ta exchange price <avg|min> [sell|buy] to sync your orders to that market baseline."
+
+msgid "SELL OFFERS:"
+msgstr "SELL OFFERS:"
+
+msgid "BUY OFFERS:"
+msgstr "BUY OFFERS:"
+
+msgid "- Optional: use /ta recipeqty set <item> <quantity> to configure how many of each product you produce per batch. Quantities are tracked separately for craft and cook recipes (/ta recipeqty craft <item> <qty> and /ta recipeqty cook <item> <qty> force a type, /ta recipeqty status lists everything). /ta setupbuy and /ta autobuylimits use these quantities to size your buy limits."
+msgstr "- Opcional: use /ta recipeqty set <item> <quantidade> para configurar quantos de cada produto você produz por lote. As quantidades são rastreadas separadamente para receitas de artesanato e culinária (/ta recipeqty craft <item> <qt> e /ta recipeqty cook <item> <qt> forçam um tipo, /ta recipeqty status lista tudo). /ta setupbuy e /ta autobuylimits usam essas quantidades para dimensionar seus limites de compra."
+
+msgid "None of the required ingredients match the given tags. Run /ta setupbuy to see suggested tags."
+msgstr "Nenhum dos ingredientes necessários corresponde às tags fornecidas. Execute /ta setupbuy para ver tags sugeridas."
+
+msgid "Matching ingredients for tag(s):"
+msgstr "Ingredientes correspondentes à(s) tag(s):"
+
+msgid "No required ingredients matched: {0}"
+msgstr "Nenhum ingrediente necessário correspondeu: {0}"
+
+msgid "Suggested ingredient tags (shared by multiple recipes, with items not yet covered by store orders):"
+msgstr "Tags de ingredientes sugeridas (compartilhadas por várias receitas, com itens ainda não cobertos por ordens de loja):"
+
+msgid "Run /ta setupbuy <tag...> to only add ingredients matching those tags."
+msgstr "Execute /ta setupbuy <tag...> para adicionar apenas ingredientes que correspondam a essas tags."
+
+msgid "{0} buy orders were added with buy limits automatically set from recipe quantities (price left at 0 for you to set). Run /ta autobuyprice on to price them automatically."
+msgstr "{0} ordens de compra foram adicionadas com limites de compra definidos automaticamente a partir das quantidades das receitas (preço deixado em 0 para você definir). Execute /ta autobuyprice on para precificá-las automaticamente."
+
+msgid "- {0}: buy price set to {1} ({2} sell price {3} x {4}%)"
+msgstr "- {0}: preço de compra definido para {1} ({2} preço de venda {3} x {4}%)"
+
+msgid "Automatic buy price is enabled ({0} sell price x {1}%): {2} priced, {3} item(s) without market data left at 0."
+msgstr "O preço de compra automático está ativado ({0} preço de venda x {1}%): {2} precificados, {3} item(ns) sem dados de mercado deixados em 0."
+
+msgid "Automatic buy price enabled: /ta setupbuy will price new buy orders from the market sell price of each ingredient."
+msgstr "Preço de compra automático ativado: /ta setupbuy precificará novas ordens de compra a partir do preço de venda de mercado de cada ingrediente."
+
+msgid "Automatic buy price disabled: /ta setupbuy will leave new buy prices at 0."
+msgstr "Preço de compra automático desativado: /ta setupbuy deixará os novos preços de compra em 0."
+
+msgid "Usage: /ta autobuyprice mode <highest|median>"
+msgstr "Uso: /ta autobuyprice mode <highest|median>"
+
+msgid "Buy price reference mode set to {0} sell price."
+msgstr "Modo de referência do preço de compra definido para preço de venda {0}."
+
+msgid "Usage: /ta autobuyprice percent <n> (percentage of the market sell price, e.g. 80)"
+msgstr "Uso: /ta autobuyprice percent <n> (porcentagem do preço de venda de mercado, ex. 80)"
+
+msgid "Buy price percentage set to {0}%."
+msgstr "Porcentagem do preço de compra definida para {0}%."
+
+msgid "Automatic buy price: {0}"
+msgstr "Preço de compra automático: {0}"
+
+msgid "enabled ({0} sell price x {1}%)"
+msgstr "ativado ({0} preço de venda x {1}%)"
+
+msgid "disabled (use /ta autobuyprice on to enable)"
+msgstr "desativado (use /ta autobuyprice on para ativar)"
+
+msgid "Usage: /ta autobuyprice <on|off|mode <highest|median>|percent <n>|status>"
+msgstr "Uso: /ta autobuyprice <on|off|mode <highest|median>|percent <n>|status>"
+
+msgid "- Optional: run /ta autobuyprice on to automatically price new buy orders added by /ta setupbuy from the market sell price of each ingredient (highest or median, default highest) multiplied by a configurable percentage (default 80%). Adjust with /ta autobuyprice mode <highest|median> and /ta autobuyprice percent <n>, review with /ta autobuyprice status and disable with /ta autobuyprice off."
+msgstr "- Opcional: execute /ta autobuyprice on para precificar automaticamente novas ordens de compra adicionadas por /ta setupbuy a partir do preço de venda de mercado de cada ingrediente (maior ou mediana, padrão maior) multiplicado por uma porcentagem configurável (padrão 80%). Ajuste com /ta autobuyprice mode <highest|median> e /ta autobuyprice percent <n>, revise com /ta autobuyprice status e desative com /ta autobuyprice off."

@@ -1,0 +1,114 @@
+# 简体中文 (Simplified Chinese) translations for Trade Assistant.
+# Translations are loaded by Eco from the mod's Locales folder at runtime.
+
+
+msgid "- Next up run the "
+msgstr "- 接下来请运行 "
+
+msgid "- Now go through your buy orders and set the buy prices as well as the buy limits for each item."
+msgstr "- 现在检查你的收购订单，为每个物品设置收购价格和收购上限。"
+
+msgid "- Once you're done with that the last step is to run "
+msgstr "- 完成后，最后一步是运行 "
+
+msgid "- Run "
+msgstr "- 运行 "
+
+msgid "- The first step is to run "
+msgstr "- 第一步是运行 "
+
+msgid "Mods"
+msgstr "Mods"
+
+msgid "This mod will help you setup your store by adding buy and sell orders onto it and updating the sell order prices based on your profit configurations you've setup."
+msgstr "这个模组可以帮助你设置商店，自动添加收购和出售订单，并根据你设置的利润配置更新出售价格。"
+
+msgid "Trade Assistant Configuration"
+msgstr "交易助手配置"
+
+msgid "Updating buy price"
+msgstr "正在更新收购价格"
+
+msgid "Updating sell price"
+msgstr "正在更新出售价格"
+
+msgid "Welcome to the Trade Assistant mod!"
+msgstr "欢迎使用交易助手模组！"
+
+msgid "Automatic re-pricing is now OFF."
+msgstr "自动重新定价已关闭。"
+
+msgid "Please provide an interval between 1 and 1440 minutes."
+msgstr "请输入 1 到 1440 分钟之间的间隔。"
+
+msgid "- Optional: run /ta autoreprice on to re-price your store automatically every N minutes (default 30) and whenever market activity or store offers change. Use /ta autoreprice interval <minutes> to change the interval, /ta autoreprice status to check and /ta autoreprice off to disable."
+msgstr "- 可选：运行 /ta autoreprice on，每 N 分钟（默认 30）并在市场活动或商店报价变化时自动重新定价。使用 /ta autoreprice interval <minutes> 修改间隔，/ta autoreprice status 查看状态，/ta autoreprice off 关闭。"
+
+msgid "- Optional: use /ta exchange status to compare your store prices with the current market (exchange) average/min/max across all player stores, and /ta exchange price <avg|min> [sell|buy] to sync your orders to that market baseline."
+msgstr "- 可选：使用 /ta exchange status 将你的商店价格与所有玩家商店的当前市场（交易所）平均/最低/最高价比较，使用 /ta exchange price <avg|min> [sell|buy] 将你的订单同步到该市场基准。"
+
+msgid "SELL OFFERS:"
+msgstr "出售报价："
+
+msgid "BUY OFFERS:"
+msgstr "收购报价："
+
+msgid "- Optional: use /ta recipeqty set <item> <quantity> to configure how many of each product you produce per batch. Quantities are tracked separately for craft and cook recipes (/ta recipeqty craft <item> <qty> and /ta recipeqty cook <item> <qty> force a type, /ta recipeqty status lists everything). /ta setupbuy and /ta autobuylimits use these quantities to size your buy limits."
+msgstr "- 可选：使用 /ta recipeqty set <item> <quantity> 配置每批次生产每种产品的数量。工艺和烹饪配方分别记录（/ta recipeqty craft <item> <qty> 和 /ta recipeqty cook <item> <qty> 强制指定类型，/ta recipeqty status 列出全部）。/ta setupbuy 和 /ta autobuylimits 使用这些数量来设定收购上限。"
+
+msgid "None of the required ingredients match the given tags. Run /ta setupbuy to see suggested tags."
+msgstr "没有必需原料匹配给定标签。运行 /ta setupbuy 查看建议标签。"
+
+msgid "Matching ingredients for tag(s):"
+msgstr "匹配标签的原料："
+
+msgid "No required ingredients matched: {0}"
+msgstr "没有匹配的必需原料：{0}"
+
+msgid "Suggested ingredient tags (shared by multiple recipes, with items not yet covered by store orders):"
+msgstr "建议的原料标签（多个配方共用，且商店订单尚未覆盖的物品）："
+
+msgid "Run /ta setupbuy <tag...> to only add ingredients matching those tags."
+msgstr "运行 /ta setupbuy <tag...> 仅添加匹配这些标签的原料。"
+
+msgid "{0} buy orders were added with buy limits automatically set from recipe quantities (price left at 0 for you to set). Run /ta autobuyprice on to price them automatically."
+msgstr "已添加 {0} 个收购订单，收购上限根据配方数量自动设定（价格留 0 供你设置）。运行 /ta autobuyprice on 自动定价。"
+
+msgid "- {0}: buy price set to {1} ({2} sell price {3} x {4}%)"
+msgstr "- {0}：收购价格设为 {1}（{2} 出售价 {3} x {4}%）"
+
+msgid "Automatic buy price is enabled ({0} sell price x {1}%): {2} priced, {3} item(s) without market data left at 0."
+msgstr "自动收购定价已启用（{0} 出售价 x {1}%）：{2} 已定价，{3} 个无市场数据的物品价格保留为 0。"
+
+msgid "Automatic buy price enabled: /ta setupbuy will price new buy orders from the market sell price of each ingredient."
+msgstr "自动收购定价已启用：/ta setupbuy 将根据每种原料的市场出售价为新收购订单定价。"
+
+msgid "Automatic buy price disabled: /ta setupbuy will leave new buy prices at 0."
+msgstr "自动收购定价已禁用：/ta setupbuy 将新收购价格保留为 0。"
+
+msgid "Usage: /ta autobuyprice mode <highest|median>"
+msgstr "用法：/ta autobuyprice mode <highest|median>"
+
+msgid "Buy price reference mode set to {0} sell price."
+msgstr "收购价参考模式设为 {0} 出售价。"
+
+msgid "Usage: /ta autobuyprice percent <n> (percentage of the market sell price, e.g. 80)"
+msgstr "用法：/ta autobuyprice percent <n>（市场出售价的百分比，例如 80）"
+
+msgid "Buy price percentage set to {0}%."
+msgstr "收购价百分比设为 {0}%。"
+
+msgid "Automatic buy price: {0}"
+msgstr "自动收购定价：{0}"
+
+msgid "enabled ({0} sell price x {1}%)"
+msgstr "已启用（{0} 出售价 x {1}%）"
+
+msgid "disabled (use /ta autobuyprice on to enable)"
+msgstr "已禁用（使用 /ta autobuyprice on 启用）"
+
+msgid "Usage: /ta autobuyprice <on|off|mode <highest|median>|percent <n>|status>"
+msgstr "用法：/ta autobuyprice <on|off|mode <highest|median>|percent <n>|status>"
+
+msgid "- Optional: run /ta autobuyprice on to automatically price new buy orders added by /ta setupbuy from the market sell price of each ingredient (highest or median, default highest) multiplied by a configurable percentage (default 80%). Adjust with /ta autobuyprice mode <highest|median> and /ta autobuyprice percent <n>, review with /ta autobuyprice status and disable with /ta autobuyprice off."
+msgstr "- 可选：运行 /ta autobuyprice on，为 /ta setupbuy 添加的新收购订单自动定价（按每种原料的市场出售价的最高或中位数，默认最高，乘以可配置百分比，默认 80%）。使用 /ta autobuyprice mode <highest|median> 和 /ta autobuyprice percent <n> 调整，/ta autobuyprice status 查看，/ta autobuyprice off 关闭。"
