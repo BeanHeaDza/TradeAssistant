@@ -112,7 +112,12 @@ namespace TradeAssistant
                     // SellPrice - SellPrice * TaxRate = CostPrice * (1 + Profit)
                     // SellPrice * (1 - TaxRate) = CostPrice * (1 + Profit)
                     // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
-                    var normalPrice = price * (1 + calc.Config.Profit / 100f) / (1 - calc.Store.GetTax());
+                    // With crafting fee tax (charged to the crafter when crafting inside the
+                    // settlement), the effective cost basis is CostPrice * (1 + CraftingFeeTaxRate),
+                    // so the price that recovers the fee and still yields the configured profit is:
+                    // SellPrice = CostPrice * (1 + CraftingFeeTaxRate) * (1 + Profit) / (1 - TaxRate)
+                    var feeRate = calc.CraftingFeeTaxRate();
+                    var normalPrice = price * (1 + calc.Config.Profit / 100f) / (1 - calc.Store.GetTax()) * (1 + feeRate);
                     var discount = Math.Max(discountPercent, calc.DiscountPercentFor(itemID));
                     var newPrice = Mathf.RoundToAcceptedDigits(normalPrice * (1 - discount / 100f));
                     if (competitiveItemIds.Contains(itemID))

@@ -266,10 +266,14 @@ namespace TradeAssistant
                 {
                     // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
                     // CostPrice = SellPrice / (1 + Profit) * (1 - TaxRate)
-                    var costPrice = outPrice / (1 + Config.Profit / 100f) * (1 - Store.GetTax());
+                    // With crafting fee tax included in sell prices, the frozen sell price embeds
+                    // the fee factor as well, so it must be stripped when back-computing the cost:
+                    // CostPrice = SellPrice / (1 + Profit) * (1 - TaxRate) / (1 + CraftingFeeTaxRate)
+                    var feeRate = this.CraftingFeeTaxRate();
+                    var costPrice = outPrice / (1 + Config.Profit / 100f) * (1 - Store.GetTax()) / (1 + feeRate);
                     reason = new StringBuilder(Localizer.Do($"{item.UILink()} has a frozen sell price and is sold at a price of {outPrice.ToStyledNum()}"));
-                    reason.AppendLineLoc($"Cost Price = SellPrice / (1 + Profit) * (1 - TaxRate)");
-                    reason.AppendLineLoc($"Cost Price = {outPrice.ToStyledNum()} / (1 + {(Config.Profit / 100f).ToStyledNum()}) * (1 - {Store.GetTax().ToStyledNum()}) = {costPrice.ToStyledNum()}");
+                    reason.AppendLineLoc($"Cost Price = SellPrice / (1 + Profit) * (1 - TaxRate) / (1 + CraftingFeeTax)");
+                    reason.AppendLineLoc($"Cost Price = {outPrice.ToStyledNum()} / (1 + {(Config.Profit / 100f).ToStyledNum()}) * (1 - {Store.GetTax().ToStyledNum()}) / (1 + {feeRate.ToStyledNum()}) = {costPrice.ToStyledNum()}");
                     outPrice = costPrice;
                 }
                 else
@@ -486,6 +490,8 @@ namespace TradeAssistant
                 return new ProductPrice(product, float.PositiveInfinity, Localizer.Do($"No sell price set for the by-product {product.Item.UILink()}."));
             // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
             // CostPrice = SellPrice / (1 + Profit) * (1 - TaxRate)
+            // Note: by-products are not crafted separately, so no crafting fee tax is stripped here;
+            // the crafting fee is recovered through the main product's sell price only.
             var costPrice = storePrice / (1 + Config.Profit / 100f) * (1 - Store.GetTax());
             var quantity = GetAdjustedProductQuantity(product, recipe, resourceEfficiency, craftingTable, resourceBonusContext, yieldBonusContext);
             var totalCostPrice = costPrice * quantity;
@@ -738,7 +744,11 @@ namespace TradeAssistant
 
                 // SellPrice = CostPrice * (1 + Profit) / (1 - TaxRate)
                 // CostPrice = SellPrice / (1 + Profit) * (1 - TaxRate)
-                var costLimitPerUnit = sellPrice / (1 + Config.Profit / 100f) * (1 - Store.GetTax());
+                // Sell prices already embed the crafting fee factor, so strip it here as well to
+                // derive the fee-free cost that still leaves the configured profit:
+                // CostLimitPerUnit = SellPrice / (1 + Profit) * (1 - TaxRate) / (1 + CraftingFeeTaxRate)
+                var feeRate = this.CraftingFeeTaxRate();
+                var costLimitPerUnit = sellPrice / (1 + Config.Profit / 100f) * (1 - Store.GetTax()) / (1 + feeRate);
 
                 // Current total cost of the product, using the current buy price of this ingredient.
                 if (!TryGetCostPrice(product.Item, out var currentCostPerUnit, out _, out _)) continue;

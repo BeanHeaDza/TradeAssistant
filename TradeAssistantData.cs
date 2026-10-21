@@ -49,6 +49,11 @@ namespace TradeAssistant
         [Serialized] public bool BuyPriceAutoEnabled { get; set; } = false;
         [Serialized] public string BuyPriceAutoMode { get; set; } = "highest";
         [Serialized] public float BuyPriceAutoPercent { get; set; } = 80f;
+        // 0.9.0: crafting fee tax support. When IncludeCraftingFeeTax is true the sell-price
+        // formula adds the crafting fee factor: SellPrice = Cost * (1 + FeeRate) * (1 + Profit) / (1 - TaxRate).
+        // CraftingFeeTaxOverridePercent 0 = auto-read the settlement's real crafting fee tax; >0 = manual override.
+        [Serialized] public bool IncludeCraftingFeeTax { get; set; } = true;
+        [Serialized] public float CraftingFeeTaxOverridePercent { get; set; } = 0f;
 
         public UserConfigUI ToUI()
         {
@@ -66,6 +71,8 @@ namespace TradeAssistant
                 CompetitiveCeilingPercent = CompetitiveCeilingPercent,
                 BuyPriceAutoEnabled = BuyPriceAutoEnabled,
                 BuyPriceAutoPercent = BuyPriceAutoPercent,
+                IncludeCraftingFeeTax = IncludeCraftingFeeTax,
+                CraftingFeeTaxOverridePercent = CraftingFeeTaxOverridePercent,
                 SoonToExpireCategoryName = SoonToExpireCategoryName,
                 SelectedStoreName = SelectedStoreName,
                 CompetitiveCategoriesText = string.Join(", ", CompetitiveCategories),
@@ -92,6 +99,8 @@ namespace TradeAssistant
             AutoRepricingIntervalMinutes = Math.Clamp(config.AutoRepricingIntervalMinutes, 1f, 1440f);
             BuyPriceAutoEnabled = config.BuyPriceAutoEnabled;
             BuyPriceAutoPercent = Math.Clamp(config.BuyPriceAutoPercent, 1f, 200f);
+            IncludeCraftingFeeTax = config.IncludeCraftingFeeTax;
+            CraftingFeeTaxOverridePercent = Math.Clamp(config.CraftingFeeTaxOverridePercent, 0f, 100f);
             // 1.2.1: write back the three competitive-pricing settings from the UI (they were missing).
             CompetitivePricingEnabled = config.CompetitivePricingEnabled;
             CompetitiveFloorPercent = Math.Clamp(config.CompetitiveFloorPercent, 0f, 100f);
@@ -138,6 +147,8 @@ namespace TradeAssistant
         [Eco, Range(0f, 100f)] public float CompetitiveCeilingPercent { get; set; } = 0f;
         [Eco] public bool BuyPriceAutoEnabled { get; set; } = false;
         [Eco, Range(1f, 200f)] public float BuyPriceAutoPercent { get; set; } = 80f;
+        [Eco] public bool IncludeCraftingFeeTax { get; set; } = true;
+        [Eco, Range(0f, 100f)] public float CraftingFeeTaxOverridePercent { get; set; } = 0f;
         [Eco] public string? SoonToExpireCategoryName { get; set; } = "SOON TO EXPIRE";
         [Eco] public string? SelectedStoreName { get; set; } = null;
         [Eco] public string? CompetitiveCategoriesText { get; set; } = null;

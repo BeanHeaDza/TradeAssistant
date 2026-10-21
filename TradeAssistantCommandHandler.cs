@@ -509,11 +509,12 @@ namespace TradeAssistant
                     msg.AppendLineLoc($"{user.UILink()} shared this price explanation with you:");
                 else
                     whoToSendTo = user;
-                var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) / (1 - calc.Store.GetTax()));
+                var feeRate = calc.CraftingFeeTaxRate();
+                var newPrice = Mathf.RoundToAcceptedDigits(price * (1 + calc.Config.Profit / 100f) / (1 - calc.Store.GetTax()) * (1 + feeRate));
                 var costPriceLink = TextLoc.FoldoutLoc($"CostPrice", $"Cost price of {item.UILink()}", reason.ToStringLoc());
                 msg.AppendLineLoc($"Sell price for {item.UILink()}");
-                msg.AppendLineLoc($"SellPrice = {costPriceLink} * (1 + Profit) / (1 - TaxRate)");
-                msg.AppendLineLoc($"          = {Text.StyledNum(price)} * (1 + {Text.StyledNum(calc.Config.Profit / 100f)}) / (1 - {Text.StyledNum(calc.Store.GetTax())})");
+                msg.AppendLineLoc($"SellPrice = {costPriceLink} * (1 + CraftingFeeTax) * (1 + Profit) / (1 - TaxRate)");
+                msg.AppendLineLoc($"          = {Text.StyledNum(price)} * (1 + {Text.StyledNum(feeRate)}) * (1 + {Text.StyledNum(calc.Config.Profit / 100f)}) / (1 - {Text.StyledNum(calc.Store.GetTax())})");
                 msg.AppendLineLoc($"          = {Text.StyledNum(newPrice)}");
                 whoToSendTo.TempServerMessage(msg.ToStringLoc());
             }
